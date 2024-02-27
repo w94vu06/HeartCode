@@ -46,8 +46,6 @@ import com.example.newidentify.Util.CsvMaker;
 import com.example.newidentify.processData.DecodeCHAFile;
 import com.example.newidentify.processData.SignalProcess;
 import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
@@ -64,7 +62,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 
 public class MainActivity extends AppCompatActivity implements CheckIDCallback {
@@ -90,6 +87,8 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     private String fileName;
     private String filePath;
     private String path;
+    String diff_value_toExcel = "";
+    int averageHalfWidthValue = 0;
 
     private String getfileName;
     private String getFilePath = "";
@@ -689,11 +688,11 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 bpmCountThread = new BpmCountThread(dataList);
                 bpmCountThread.run();
                 //makeCsv  ArrayList<Double>
-                ArrayList<Double> doubles = floatArrayToDoubleList(bpmCountThread.resultFloatArray);
+                ArrayList<Double> doubles = floatArrayToDoubleList(bpmCountThread.ecg_signal_origin);
                 String date = new SimpleDateFormat("yyyyMMddhhmmss",
                         Locale.getDefault()).format(System.currentTimeMillis());
 //                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
-                calMidError(bpmCountThread.resultFloatArray);
+                calMidError(bpmCountThread.ecg_signal_origin);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -736,23 +735,32 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             float diff14_ = signalProcess.calMidDiff(df1_, df4);
             float diff23_ = signalProcess.calMidDiff(df2, df3);
 
-            chartSetting.overlapChart(chart_df, df1, df2, df3, df4,Color.CYAN,Color.RED);
-            chartSetting.overlapChart(chart_df2, df1_, df2, df3, df4,Color.BLACK,Color.parseColor("#F596AA"));
+            chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
+            chartSetting.overlapChart(chart_df2, df1_, df2, df3, df4, Color.BLACK, Color.parseColor("#F596AA"));
 
             float averageDiff4Num_self = (diff12 + diff13 + diff14 + diff23) / 4;
             float averageDiff4Num_sb = (diff12_ + diff13_ + diff14_ + diff23_) / 4;
 
-            float median = bpmCountThread.calculateMedian(bpmCountThread.R_dot_up);
+            float median_R = bpmCountThread.calculateMedian(bpmCountThread.R_dot_up);
+            float max_R = bpmCountThread.calculateMax(bpmCountThread.R_dot_up);
+            float std_R = bpmCountThread.calculateSTD(bpmCountThread.R_dot_up);
+            float median_T = bpmCountThread.calculateMedian(bpmCountThread.T_dot_up);
+            float max_T = bpmCountThread.calculateMax(bpmCountThread.T_dot_up);
+            float std_T = bpmCountThread.calculateSTD(bpmCountThread.T_dot_up);
 
-            Log.d("jjjj", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
-            if (Objects.equals(firstFileName, fileName)) {
-                Log.d("record", fileName + " 自己當下差異度: " + averageDiff4Num_self);
-                txt_result.setText(String.format("自己當下差異度: %s", averageDiff4Num_self + "\n電壓中位數:" + median));
-            } else {
-                Log.d("record", fileName + " 自己當下差異度: " + averageDiff4Num_self);
-                Log.d("record", firstFileName + " 與 " + fileName + "的差異度: " + averageDiff4Num_sb);
-                txt_result.setText(String.format("自己當下差異度: %s\n與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + "\n電壓中位數:" + median));
-            }
+            List<Integer> halfWidth = bpmCountThread.calculateHalfWidths(bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up);
+
+            averageHalfWidthValue = bpmCountThread.calculateHalfWidthsAverage(halfWidth);
+
+            Log.d("hhhh", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
+            String r_value = "\nRV-med:" + median_R + "/RV-max:" + max_R + "/RV-std:" + std_R;
+            String t_value = "\nTV-med:" + median_T + "/TV-max:" + max_T + "/TV-std:" + std_T;
+            String r_halfWidth = "\nR-halfWidth:" + averageHalfWidthValue;
+            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth);
+            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue;
+
+            txt_result.setText(diff_value);
+
             if (averageDiff4Num_self < -0.8) {
 //                ShowToast("訊號品質不好，請重新量測");
 //                txt_checkID_result.setText("訊號品質不好，請重新量測");
@@ -819,9 +827,12 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             @Override
             public void run() {
                 if (result.isEmpty() || result.equals("null")) {
-                    txt_checkID_result.setText("量測失敗");
+                    String s = "量測失敗";
+                    Log.d("excel", diff_value_toExcel + "," + s);
+                    txt_checkID_result.setText(s);
                 } else {
                     txt_checkID_result.setText(result);
+                    Log.d("excel", diff_value_toExcel + "," + result);
                 }
             }
         });

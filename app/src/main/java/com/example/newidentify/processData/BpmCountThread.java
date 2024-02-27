@@ -1,6 +1,5 @@
 package com.example.newidentify.processData;
 
-import android.nfc.Tag;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -31,7 +30,7 @@ public class BpmCountThread extends Thread {
 
     //回傳結果
     Float minFloatValue;
-    public Float[] resultFloatArray;
+    public Float[] ecg_signal_origin;
     double bpmUp;
     double bpmDown;
 
@@ -47,7 +46,7 @@ public class BpmCountThread extends Thread {
     List<Integer> RRIUp = new ArrayList<>();
     List<Integer> RRIDown = new ArrayList<>();
 
-    List<Float> T_dot = new ArrayList<>(); //T點
+    public List<Float> T_dot_up = new ArrayList<>(); //T點
     List<Integer> T_index = new ArrayList<>(); //T點索引
 
     @Override
@@ -73,7 +72,7 @@ public class BpmCountThread extends Thread {
         }
 
         if (floats.length >= 20000) {
-            resultFloatArray = Arrays.copyOfRange(floats, 4000, 22000);
+            ecg_signal_origin = Arrays.copyOfRange(floats, 4000, 22000);
         } else {
             try {
                 throw new Exception("資料錯誤");
@@ -82,7 +81,7 @@ public class BpmCountThread extends Thread {
             }
         }
 
-        findPeaks(resultFloatArray, 1.5);
+        findPeaks(ecg_signal_origin, 1.5);
         //找出上下的R
         calPeakListUp();
         calPeakListDown();
@@ -160,7 +159,7 @@ public class BpmCountThread extends Thread {
             R_index_down.clear();
             RRIUp.clear();
             RRIDown.clear();
-            T_dot.clear();
+            T_dot_up.clear();
             T_index.clear();
 
             findPeaks(resultFloatArray, 2.5);
@@ -236,17 +235,17 @@ public class BpmCountThread extends Thread {
             }
 
             // 將最大值添加到列表中
-            T_dot.add(maxBetweenR);
+            T_dot_up.add(maxBetweenR);
         }
 
         // 輸出結果
-        for (float maxValue : T_dot) {
+        for (float maxValue : T_dot_up) {
             Log.d("MaxValueBetweenR", String.valueOf(maxValue));
         }
 
         //拿到T的索引
         for (int i = 0; i < peakListUp.size(); i++) {
-            if (T_dot.contains(peakListUp.get(i))) {
+            if (T_dot_up.contains(peakListUp.get(i))) {
                 T_index.add(i);
             }
         }
@@ -262,6 +261,66 @@ public class BpmCountThread extends Thread {
         } else {
             return list.get(list.size() / 2);
         }
+    }
+    /**
+     * 取最大值
+     */
+    public float calculateMax(List<Float> list) {
+        return Collections.max(list);
+    }
+    /**
+     * 取標準差
+     */
+    public float calculateSTD(List<Float> list) {
+        float sum = 0, standardDeviation = 0;
+        int length = list.size();
+
+        for (float num : list) {
+            sum += num;
+        }
+        float mean = sum / length;
+
+        for (float num : list) {
+            standardDeviation += Math.pow(num - mean, 2);
+        }
+
+        return (float) Math.sqrt(standardDeviation / length);
+    }
+
+    /**
+     * 取半高寬
+     */
+    public List<Integer> calculateHalfWidths(Float[] ecg_signal, List<Integer> r_indexes) {
+        List<Integer> halfWidths = new ArrayList<>();
+
+        for (Integer r_index : r_indexes) {
+            Float r_value = ecg_signal[r_index];
+            Float halfMaxValue = r_value / 2;
+
+            int leftIndex = r_index;
+            while (leftIndex > 0 && ecg_signal[leftIndex] >= halfMaxValue) {
+                leftIndex--;
+            }
+
+            int rightIndex = r_index;
+            while (rightIndex < ecg_signal.length - 1 && ecg_signal[rightIndex] >= halfMaxValue) {
+                rightIndex++;
+            }
+
+            // 計算並保存半高寬
+            int halfWidth = rightIndex - leftIndex;
+            halfWidths.add(halfWidth);
+        }
+
+        return halfWidths;
+    }
+
+    public int calculateHalfWidthsAverage(List<Integer> halfWidths) {
+        int sum = 0;
+        for (int halfWidth : halfWidths) {
+            sum += halfWidth;
+        }
+        return sum / halfWidths.size();
     }
 
     /**
