@@ -266,7 +266,7 @@ public class BT4 extends Service {
             global_activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(bluetooth_Tag, "蓝牙连接成功AAAAAAAA");
+                    Log.d(bluetooth_Tag, "藍芽連接成功");
 //                    txt_BleStatus.setText("已連線");
 
                 }
@@ -694,7 +694,7 @@ public class BT4 extends Service {
             @Override
             public void handleMessage(Message msg) {
                 file_index = file_index + 2;
-                Log.d(bluetooth_Tag, "Buffer_Array = " + Buffer_Array.size());
+//                Log.d(bluetooth_Tag, "Buffer_Array = " + Buffer_Array.size());
                 for (int i = 2; i < 514; i++) {
                     if (file_data.size() < File_Count) {
                         file_data.add(Buffer_Array.get(i));
@@ -702,7 +702,7 @@ public class BT4 extends Service {
                     }
                 }
 
-                Log.d(bluetooth_Tag, "Percent = " + (file_data.size() * 100 / File_Count));
+//                Log.d(bluetooth_Tag, "Percent = " + (file_data.size() * 100 / File_Count));
                 global_activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {

@@ -40,10 +40,10 @@ import android.widget.Toast;
 import com.example.newidentify.Util.ChartSetting;
 import com.example.newidentify.Util.CheckIDCallback;
 import com.example.newidentify.Util.CleanFile;
+import com.example.newidentify.Util.TinyDB;
 import com.example.newidentify.processData.BpmCountThread;
 import com.example.newidentify.Util.CsvMaker;
 import com.example.newidentify.processData.DecodeCHAFile;
-import com.example.newidentify.processData.Processor15SecThread;
 import com.example.newidentify.processData.SignalProcess;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
@@ -75,6 +75,8 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
      **/
     Button btn_detect, btn_clean, btn_stop;
     TextView txt_fileName, txt_result;
+    TextView txt_checkID_status, txt_checkID_result;
+    TextView txt_Register_values, txt_Measure_values;
 
     /**
      * choose Device Dialog
@@ -121,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     //    public static TextView Percent_Text;
     public static LineChart lineChart;
     public static LineChart chart_df;
+    public static LineChart chart_df2;
     private ChartSetting chartSetting;
     ///////////////////////
     //////畫心電圖使用///////
@@ -159,6 +162,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     private BpmCountThread bpmCountThread;
     private CleanFile cleanFile;
     private CsvMaker csvMaker = new CsvMaker(this);
+    private CheckID checkID;
 
 
     @Override
@@ -176,15 +180,21 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         signalProcess = new SignalProcess();
         cleanFile = new CleanFile();
         chartSetting = new ChartSetting();
-
+        checkID = new CheckID(this, this);
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
+        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
         initPermission();//檢查權限
         checkStorageManagerPermission();//檢查儲存權限
         initDeviceDialog();//裝置選擇Dialog
+
+        checkID.readRecord();//讀取註冊檔案存檔
+
+        txt_checkID_status.setText(checkID.recordResult);//讀取註冊檔案
+        txt_Register_values.setText(checkID.recordValue);//讀取以儲存數據
     }
 
     @Override
@@ -261,6 +271,10 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         txt_result = findViewById(R.id.txt_result);
         txt_countDown = findViewById(R.id.txt_countDown);
         txt_BleStatus = findViewById(R.id.txt_BleStatus);
+        txt_checkID_status = findViewById(R.id.txt_checkID_status);
+        txt_checkID_result = findViewById(R.id.txt_checkID_result);
+        txt_Register_values = findViewById(R.id.txt_Register_values);
+        txt_Measure_values = findViewById(R.id.txt_Measure_values);
 
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -271,7 +285,12 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         btn_clean.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                cleanRegisterFile();
+                tinyDB.clear();
+                editor.clear();
+                editor.apply();
+                checkID.cleanRecord();
+                ShowToast("已清除註冊檔案");
+                txt_checkID_status.setText("尚未有註冊資料");
             }
         });
     }
@@ -439,7 +458,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         return tmp;
     }
 
-
     /**
      * 量測與畫圖
      */
@@ -448,9 +466,11 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         bt4.Bluetooth_init();
         if (bt4.isConnected) {
             runOnUiThread(() -> {
-                save15secWaveData.clear();
-                lineChart.clear();
-                chartSet1Entries.clear();
+                chartSet1Entries.clear(); // 清除上次的數據
+                oldValue.clear(); // 清除上次的數據
+                txt_checkID_result.setText("");
+                txt_checkID_status.setText("");
+                txt_Measure_values.setText("當下數據\n");
                 initchart();
             });
             if (!isCountDownRunning) {
@@ -489,9 +509,9 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                         txt_countDown.setText(String.valueOf(remainingTime / 1000));
                         remainingTime -= COUNTDOWN_INTERVAL;
                         countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
-                        if (!isPreChecked) {
-                            preCheckSignal();
-                        }
+//                        if (!isPreChecked) {
+//                            preCheckSignal();
+//                        }
                     }
                 } else {
                     bt4.isTenSec = false;
@@ -501,23 +521,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 }
             }
         }, COUNTDOWN_INTERVAL);
-    }
-
-    public void preCheckSignal() {
-        if (save15secWaveData.size() == 1500) {
-            isPreChecked = true;
-            Processor15SecThread processor15SecThread = new Processor15SecThread(save15secWaveData);
-            processor15SecThread.run();
-            if (processor15SecThread.averageDiff4Num_self < -1) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        txt_result.setText("訊號品質不良，請重新量測 :" + processor15SecThread.averageDiff4Num_self + "\n");
-//                        stopALL();
-                    }
-                });
-            }
-        }
     }
 
     //把能停的都停下來
@@ -532,11 +535,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
     }
 
-    private void cleanRegisterFile() {
-        tinyDB.clear();
-        ShowToast("清除註冊檔案");
-    }
-
     @SuppressLint("HandlerLeak")
     public void stopWaveMeasurement() {
         if (bt4.isWave) {
@@ -545,8 +543,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 @Override
                 public void handleMessage(Message msg2) {
                     ShowToast("完成停止跑波");
-                    chartSet1Entries.clear(); // 清除上次的數據
-                    oldValue.clear(); // 清除上次的數據
                     if (isMeasurementOver) {
                         processMeasurementData();
                     }
@@ -593,7 +589,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
                 if (step[0] == 4) {
                     readLP4(getFilePath);
-
+                    checkID.loadFilePath(getFilePath);
                     bt4.Delete_AllRecor(this);
                     bt4.file_data.clear();
                     bt4.Buffer_Array.clear();
@@ -713,10 +709,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             List<Float> df2 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(3), R_index.get(5));
             List<Float> df3 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(6), R_index.get(8));
             List<Float> df4 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
-            overlapChart(chart_df, df1, df2, df3, df4);
-
-            String date = new SimpleDateFormat("yyyyMMddhhmmss", Locale.getDefault()).format(System.currentTimeMillis());
-//            csvMaker.makeCSVFloatDf(df1, df2, df3, df4, "df_" + date + ".csv");
 
             if (tinyDB.getListFloat("df1").size() < 10) {
                 tinyDB.putString("chooserFileName", getfileName);
@@ -744,20 +736,26 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             float diff14_ = signalProcess.calMidDiff(df1_, df4);
             float diff23_ = signalProcess.calMidDiff(df2, df3);
 
+            chartSetting.overlapChart(chart_df, df1, df2, df3, df4,Color.CYAN,Color.RED);
+            chartSetting.overlapChart(chart_df2, df1_, df2, df3, df4,Color.BLACK,Color.parseColor("#F596AA"));
+
             float averageDiff4Num_self = (diff12 + diff13 + diff14 + diff23) / 4;
             float averageDiff4Num_sb = (diff12_ + diff13_ + diff14_ + diff23_) / 4;
+
+            float median = bpmCountThread.calculateMedian(bpmCountThread.R_dot_up);
 
             Log.d("jjjj", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
             if (Objects.equals(firstFileName, fileName)) {
                 Log.d("record", fileName + " 自己當下差異度: " + averageDiff4Num_self);
-                txt_result.setText(String.format("自己當下差異度: %s", averageDiff4Num_self));
+                txt_result.setText(String.format("自己當下差異度: %s", averageDiff4Num_self + "\n電壓中位數:" + median));
             } else {
                 Log.d("record", fileName + " 自己當下差異度: " + averageDiff4Num_self);
                 Log.d("record", firstFileName + " 與 " + fileName + "的差異度: " + averageDiff4Num_sb);
-                txt_result.setText(String.format("自己當下差異度: %s\n與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb));
+                txt_result.setText(String.format("自己當下差異度: %s\n與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + "\n電壓中位數:" + median));
             }
             if (averageDiff4Num_self < -0.8) {
-                ShowToast("訊號品質不好，請重新量測");
+//                ShowToast("訊號品質不好，請重新量測");
+//                txt_checkID_result.setText("訊號品質不好，請重新量測");
             }
         }
     }
@@ -772,7 +770,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     }
 
     public void initchart() {
-        // 允許滑動
         chartSetting.initchart(lineChart);
 
         chartSet1.setColor(Color.BLACK);
@@ -794,83 +791,73 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         }
 
         lineChart.invalidate();
-
     }
 
-    //畫圖
-    public void overlapChart(LineChart lineChart, List<Float> df1, List<Float> df2, List<Float> df3, List<Float> df4) {
-
-        //list float to entry
-        ArrayList<Entry> df1_ = new ArrayList<>();
-        ArrayList<Entry> df2_ = new ArrayList<>();
-        ArrayList<Entry> df3_ = new ArrayList<>();
-        ArrayList<Entry> df4_ = new ArrayList<>();
-        for (int i = 0; i < df1.size(); i++) {
-            Entry entry = new Entry(i, df1.get(i));
-            df1_.add(entry);
-        }
-        for (int i = 0; i < df2.size(); i++) {
-            Entry entry = new Entry(i, df2.get(i));
-            df2_.add(entry);
-        }
-        for (int i = 0; i < df3.size(); i++) {
-            Entry entry = new Entry(i, df3.get(i));
-            df3_.add(entry);
-        }
-        for (int i = 0; i < df4.size(); i++) {
-            Entry entry = new Entry(i, df4.get(i));
-            df4_.add(entry);
-        }
-
-        LineDataSet dataSet1 = createDataSet("df1", Color.RED, df1);
-        LineDataSet dataSet2 = createDataSet("df2", Color.BLUE, df2);
-        LineDataSet dataSet3 = createDataSet("df3", Color.GREEN, df3);
-        LineDataSet dataSet4 = createDataSet("df4", Color.YELLOW, df4);
-
-        YAxis leftAxis = lineChart.getAxisLeft();
-        leftAxis.setEnabled(false);
-        YAxis rightAxis = lineChart.getAxisRight();
-        rightAxis.setEnabled(false);
-        XAxis topAxis = lineChart.getXAxis();
-        topAxis.setEnabled(false);
-
-        LineData lineData = new LineData(dataSet1, dataSet2, dataSet3, dataSet4);
-
-        lineChart.setData(lineData);
-
-        lineChart.invalidate();
-    }
-
-    private LineDataSet createDataSet(String label, int color, List<Float> values) {
-        // 将 List<Float> 轉成 List<Entry>
-        List<Entry> entries = new ArrayList<>();
-        for (int i = 0; i < values.size(); i++) {
-            entries.add(new Entry(i, values.get(i)));
-        }
-
-        LineDataSet dataSet = new LineDataSet(entries, label);
-
-        dataSet.setColor(color);
-        dataSet.setLineWidth(2f);
-        dataSet.setDrawCircles(false);
-        dataSet.setMode(LineDataSet.Mode.LINEAR);
-
-        return dataSet;
-    }
 
     @Override
     public void onStatusUpdate(String result) {
-
+        runOnUiThread(() -> {
+            Log.d("IDCallback", "onStatusUpdate: " + result);
+            txt_checkID_status.setText(result);
+        });
     }
 
     @Override
     public void onCheckIDError(String result) {
-
+        runOnUiThread(() -> {
+            Log.d("IDCallback", "onCheckIDError: " + result);
+            txt_checkID_status.setText(result);
+            if (result.equals("量測失敗")) {
+                txt_Measure_values.setText("計算錯誤");
+            }
+        });
     }
 
     @Override
     public void onResult(String result) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (result.isEmpty() || result.equals("null")) {
+                    txt_checkID_result.setText("量測失敗");
+                } else {
+                    txt_checkID_result.setText(result);
+                }
+            }
+        });
+    }
 
+    @Override
+    public void onDetectData(String result, String result2) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (result.isEmpty() || result.equals("null")) {
+                    txt_Register_values.setText("已註冊數據: 無");
+                } else {
+                    txt_Register_values.setText("已註冊數據: \n" + result);
+                }
+                if (result2.isEmpty() || result2.equals("null")) {
+                    txt_Measure_values.setText("量測資料: 無");
+                } else {
+                    txt_Measure_values.setText("目前量測: \n" + result2);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onDetectDataError(String result) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (result.isEmpty() || result.equals("null")) {
+                    txt_Measure_values.setText("目前量測: 無");
+                } else {
+                    txt_Measure_values.setText("目前量測: \n" + result);
+                }
+            }
+        });
     }
 
     public static native int anaEcgFile(String name, String path);

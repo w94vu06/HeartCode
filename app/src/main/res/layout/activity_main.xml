@@ -4,30 +4,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
+    android:gravity=""
     android:orientation="vertical"
     tools:context=".MainActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="量測"
-            android:textColor="#000000"
-            android:textSize="@dimen/dp_25"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/dp_10"
+        android:layout_marginTop="@dimen/dp_0"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -55,7 +39,7 @@
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/linechart"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/dp_200"
+        android:layout_height="@dimen/dp_180"
         android:layout_marginStart="@dimen/dp_8"
         android:layout_marginEnd="@dimen/dp_8"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -68,10 +52,10 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/dp_10"
-        android:layout_marginBottom="@dimen/dp_10"
+        android:layout_marginTop="@dimen/dp_0"
+        android:layout_marginBottom="@dimen/dp_0"
         android:layout_marginStart="@dimen/dp_5"
-        android:layout_marginEnd="@dimen/dp_5"
+        android:layout_marginEnd="@dimen/dp_0"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -111,25 +95,35 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/dp_0"
         android:gravity="center"
-        android:orientation="vertical">
+        android:orientation="horizontal">
 
-<!--        <Button-->
-<!--            android:id="@+id/btn_choose"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:background="@drawable/shape_button"-->
-<!--            android:fontFamily="@font/glowsanssc_condensed_book"-->
-<!--            android:minHeight="0dp"-->
-<!--            android:paddingLeft="@dimen/dp_40"-->
-<!--            android:paddingRight="@dimen/dp_40"-->
-<!--            android:text="選擇檔案"-->
-<!--            android:textColor="@color/gray"-->
-<!--            android:textSize="@dimen/sp_20" />-->
+        <TextView
+            android:id="@+id/txt_checkID_status"
+            android:layout_width="@dimen/dp_0"
+            android:layout_height="@dimen/dp_30"
+            android:fontFamily="@font/glowsanssc_condensed_book"
+            android:text=""
+            android:textColor="@color/gray"
+            android:textSize="15sp"
+            android:gravity="right"
+            android:layout_weight="1"/>
+
+        <TextView
+            android:id="@+id/txt_checkID_result"
+            android:layout_width="@dimen/dp_0"
+            android:layout_height="@dimen/dp_30"
+            android:fontFamily="@font/glowsanssc_condensed_book"
+            android:text=""
+            android:textColor="@color/gray"
+            android:textSize="15sp"
+            android:gravity="center"
+            android:layout_weight="1"/>
+
     </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -144,30 +138,52 @@
                 android:fontFamily="@font/glowsanssc_condensed_book"
                 android:gravity="center"
                 android:text="量測結果"
-                android:textSize="@dimen/dp_15"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.0"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="0.645" />
+                android:textSize="@dimen/dp_15" />
 
             <com.github.mikephil.charting.charts.LineChart
                 android:id="@+id/chart_df"
                 android:layout_width="match_parent"
-                android:layout_height="@dimen/dp_200"
+                android:layout_height="@dimen/dp_180"
                 android:layout_marginStart="@dimen/dp_8"
-                android:layout_marginEnd="@dimen/dp_8"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.0"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="0.086" />
+                android:layout_marginEnd="@dimen/dp_8" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginStart="@dimen/dp_8"
+                android:layout_marginEnd="@dimen/dp_8">
+
+                <TextView
+                    android:id="@+id/txt_Register_values"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/glowsanssc_condensed_book"
+                    android:gravity="left"
+                    android:text="註冊數據"
+                    android:textSize="@dimen/dp_12"
+                    android:layout_weight="0.2" />
+
+                <TextView
+                    android:id="@+id/txt_Measure_values"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/glowsanssc_condensed_book"
+                    android:gravity="center"
+                    android:text="當下數據"
+                    android:textSize="@dimen/dp_15"
+                    android:layout_weight="0.5"/>
+
+            </LinearLayout>
+
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chart_df2"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_180"
+                android:layout_marginStart="@dimen/dp_8"
+                android:layout_marginEnd="@dimen/dp_8" />
 
         </LinearLayout>
 
     </ScrollView>
-
 </LinearLayout>

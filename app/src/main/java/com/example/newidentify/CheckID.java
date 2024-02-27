@@ -8,15 +8,16 @@ import android.os.Build;
 import android.util.Log;
 
 import com.example.newidentify.Util.CheckIDCallback;
+import com.example.newidentify.Util.TinyDB;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
 
 public class CheckID {
     private final CheckIDCallback callback;
@@ -28,12 +29,15 @@ public class CheckID {
         this.context = context;
         this.tinyDB = new TinyDB(context);
     }
+
     private String path, filePath, fileName;
     private Map<String, String> dataHashMap = new HashMap<>();
     public ArrayList<Double> heartRateArray = new ArrayList<>();
-    private ArrayList<Double> stdArray = new ArrayList<>();
-    private ArrayList<Double> CVIArray = new ArrayList<>();
-    private ArrayList<Double> GIArray = new ArrayList<>();
+    public ArrayList<Double> stdArray = new ArrayList<>();
+    public ArrayList<Double> CVIArray = new ArrayList<>();
+    public ArrayList<Double> GIArray = new ArrayList<>();
+    public String recordResult = "";
+    public String recordValue = "";
 
     double maxHR, maxStd, maxCVI, maxGI;
     double minHR, minStd, minCVI, minGI;
@@ -48,9 +52,11 @@ public class CheckID {
         String registerFileCount = String.valueOf(heartRateArray.size());
 
         if (heartRateArray.size() == 0) {
-            callback.onStatusUpdate("尚未有註冊資料");
+            recordResult = "尚未有註冊資料";
+            recordValue = "";
         } else {
-            callback.onStatusUpdate("已有" + registerFileCount + "筆註冊資料");
+            recordResult = "已有" + registerFileCount + "筆註冊資料";
+            recordValue = "已註冊數據\n" + "HR:" + heartRateArray.toString() + "\nSTD:" + stdArray.toString() + "\nCVI:" + CVIArray.toString() + "\nGI:" + GIArray.toString();
         }
     }
 
@@ -60,67 +66,98 @@ public class CheckID {
             return;
         }
         File file = new File(dir);
+
         fileName = file.getName();
         filePath = dir;
         path = filePath.substring(0, filePath.length() - fileName.length());
 
         initCheck();
-
     }
 
     private void initCheck() {
         if (fileName == null) {
             Log.d("gggg", "initCheck 發生問題，請重新量測");
-            callback.onCheckIDError("檔案發生問題，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
             return;
         }
-
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
         if (extension.equalsIgnoreCase("lp4")) {
             try {
-                decpEcgFile(filePath);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        decpEcgFile(filePath);
+                    }
+                }).start();
                 fileName = fileName.replace(".lp4", ".cha");
                 initIdentify();
             } catch (Exception e) {
                 Log.d("gggg", "decpEcgFile 發生問題，請重新量測");
-                callback.onCheckIDError("處理檔案時發生錯誤: " + e.getMessage());
+                callback.onCheckIDError("量測失敗，請重新量測: " + e.getMessage());
             }
         } else if (extension.equalsIgnoreCase("cha")) {
             initIdentify();
         } else {
-            callback.onCheckIDError("檔案格式錯誤，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
         }
     }
+
 
     private void initIdentify() {
-        int x = anaEcgFile(fileName, path);
-        if (x == 1) {
-            Log.d("gggg", "anaEcgFile 錯誤，請重新量測");
-            callback.onCheckIDError("檔案訊號錯誤，請換個檔案繼續");
+        if (fileName == null || path == null) {
+            Log.e("Error", "File name or path is null");
+            return;
         }
+
+        int errorCode = anaEcgFile(fileName, path);
+        Log.d("Info", "fileName: " + fileName + " \npath: " + path + " \nerrorCode: " + errorCode);
+
+        if (errorCode == 1) {
+            Log.e("Error", "anaEcgFile failed with errorCode " + errorCode);
+            callback.onCheckIDError("量測失敗，請重新量測");
+            callback.onDetectDataError("計算錯誤");
+            return;
+        }
+
         filePath = path;
-        fileName = fileName.substring(0, fileName.length() - 4);
+        if (fileName.length() > 4) {
+            fileName = fileName.substring(0, fileName.length() - 4);
+        } else {
+            Log.e("Error", "File name is too short");
+            return;
+        }
+
+        Log.d("Info", "initIdentify: " + fileName);
         File file = new File(filePath + "/r_" + fileName + ".txt");
-        if (file.isFile() && file.exists()) {
-            try {
-                parseFile(file);
-            } catch (Exception e) {
-                Log.e("catchError", e.toString());
-            }
+        Log.d("Info", "initIdentify: " + file.getName());
+
+        if (!file.isFile() || !file.exists()) {
+            Log.e("Error", "File does not exist or is not a file");
+            return;
+        }
+
+        try {
+            parseFile(file);
+        } catch (Exception e) {
+            Log.e("catchError", e.toString());
+            callback.onCheckIDError("量測失敗，請重新量測");
         }
     }
 
-    private void parseFile(File file) throws IOException, FileNotFoundException {
+    private void parseFile(File file) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // 將每一行拆分為名稱和值，然後將它們添加到dataMap中
+                if (line.isEmpty()) {
+                    continue;
+                }
+
                 String[] parts = line.split(",");
                 for (String part : parts) {
                     String[] nameValue = part.split(":");
-                    if (nameValue.length == 2) {
-                        String name = nameValue[0].trim(); // 去除名稱前後的空格
-                        String value = nameValue[1].trim(); // 去除值前後的空格
+                    if (nameValue.length >= 2) {
+                        String name = nameValue[0].trim();
+                        String value = nameValue[1].trim();
                         dataHashMap.put(name, value);
                     }
                 }
@@ -128,6 +165,7 @@ public class CheckID {
             updateValues();
         }
     }
+
 
     private void updateValues() {
         int dataCollectionLimit = 5;
@@ -137,34 +175,29 @@ public class CheckID {
         ValueCVI = Double.parseDouble(dataHashMap.get("CVI"));
         ValueGI = Double.parseDouble(dataHashMap.get("GI"));
 
-        Log.d("vvvv", "Average: "+ValueHR);
-        Log.d("vvvv", "Standard Deviation: "+ValueStd);
-        Log.d("vvvv", "CVI: "+ValueCVI);
-        Log.d("vvvv", "GI: "+ValueGI);
+        Log.d("vvvv", "Average: " + ValueHR);
+        Log.d("vvvv", "Standard Deviation: " + ValueStd);
+        Log.d("vvvv", "CVI: " + ValueCVI);
+        Log.d("vvvv", "GI: " + ValueGI);
 
         if (Max > 180 && Max / ValueHR > 1.4) {
-            Log.d("gggg", "dataBad: ");
-            callback.onResult("量測失敗，請重新量測");
+            Log.d("gggg", "ValueBad");
+            callback.onResult("數據品質過差");
         } else {
-            Log.d("gggg", "dataGood: ");
-            if (heartRateArray.size() < dataCollectionLimit) {
-                heartRateArray.add(ValueHR);
-                stdArray.add(ValueStd);
-                CVIArray.add(ValueCVI);
-                GIArray.add(ValueGI);
-
-                Log.d("cccc", "updateValues: "+heartRateArray.toString());
-                Log.d("cccc", "updateValues: "+stdArray.toString());
-                Log.d("cccc", "updateValues: "+CVIArray.toString());
-                Log.d("cccc", "updateValues: "+GIArray.toString());
-
-                saveRecord();
+            heartRateArray.add(ValueHR);
+            stdArray.add(ValueStd);
+            CVIArray.add(ValueCVI);
+            GIArray.add(ValueGI);
+            if (heartRateArray.size() <= dataCollectionLimit) {
+                callback.onResult("量測成功");
+                saveRecordToTinyDB();
+            }
+            if (heartRateArray.size() > dataCollectionLimit) {//計算通過標準
+                calculatePassStandard();
             }
         }
-
-        if (heartRateArray.size() >= dataCollectionLimit) {//計算通過標準
-            calculatePassStandard();
-        }
+        callback.onDetectData("HR:" + heartRateArray.toString() + "\nSTD:" + stdArray.toString() + "\nCVI:" + CVIArray.toString() + "\nGI:" + GIArray.toString(),
+                "HR:" + ValueHR + "\nSTD:" + ValueStd + "\nCVI:" + ValueCVI + "\nGI:" + ValueGI);
 
         String s = String.format("所需檔案數量: (%d/%d)\n", heartRateArray.size(), dataCollectionLimit);
         Log.d("gggg", s);
@@ -193,6 +226,12 @@ public class CheckID {
             double averageGI = calculateAverage(GIArray);
             maxGI = averageGI + averageGI * GI_RANGE_FACTOR;
             minGI = averageGI - averageGI * GI_RANGE_FACTOR;
+
+            // Remove the last element of each array
+            heartRateArray.remove(heartRateArray.size() - 1);
+            stdArray.remove(stdArray.size() - 1);
+            CVIArray.remove(CVIArray.size() - 1);
+            GIArray.remove(GIArray.size() - 1);
 
             checkIDResult();
         }
@@ -227,7 +266,7 @@ public class CheckID {
         }
     }
 
-    public void saveRecord() {
+    public void saveRecordToTinyDB() {
         tinyDB.putListDouble("heartRateArray", heartRateArray);
         tinyDB.putListDouble("stdArray", stdArray);
         tinyDB.putListDouble("CVIArray", CVIArray);

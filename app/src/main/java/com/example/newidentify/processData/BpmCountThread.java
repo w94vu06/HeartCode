@@ -5,6 +5,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import uk.me.berndporr.iirj.Butterworth;
@@ -37,7 +38,7 @@ public class BpmCountThread extends Thread {
     List<Float> peakListUp = new ArrayList();
     List<Float> peakListDown = new ArrayList();
 
-    List<Float> R_dot_up = new ArrayList();
+    public List<Float> R_dot_up = new ArrayList();
     List<Float> R_dot_down = new ArrayList();
     public List<Integer> R_index_up = new ArrayList();//R點索引
 
@@ -79,7 +80,6 @@ public class BpmCountThread extends Thread {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
         }
 
         findPeaks(resultFloatArray, 1.5);
@@ -165,7 +165,7 @@ public class BpmCountThread extends Thread {
 
             findPeaks(resultFloatArray, 2.5);
         }
-        Log.d("Rindex", "findPeaks: "+R_index_up.size());
+        Log.d("Rindex", "findPeaks: " + R_index_up.size());
 
     }
 
@@ -249,6 +249,18 @@ public class BpmCountThread extends Thread {
             if (T_dot.contains(peakListUp.get(i))) {
                 T_index.add(i);
             }
+        }
+    }
+
+    /**
+     * 取中位數
+     */
+    public float calculateMedian(List<Float> list) {
+        Collections.sort(list);
+        if (list.size() % 2 == 0) {
+            return (list.get(list.size() / 2 - 1) + list.get(list.size() / 2)) / 2.0f;
+        } else {
+            return list.get(list.size() / 2);
         }
     }
 

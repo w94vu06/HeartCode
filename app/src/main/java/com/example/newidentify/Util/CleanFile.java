@@ -8,6 +8,7 @@ public class CleanFile {
         deleteCha(filePath);
         deleteLp4(filePath);
         deleteTxt(filePath);
+        deleteCsv(filePath);
     }
     public void deleteCha(String filePath) {
         String fileCha = ".cha";
@@ -47,6 +48,24 @@ public class CleanFile {
     }
     public void deleteTxt(String filePath) {
         String fileTxt = ".txt";
+
+        File folder = new File(filePath);
+        File[] files = folder.listFiles();
+
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().endsWith(fileTxt)) {
+                    if (file.delete()) {
+                        System.out.println("Deleted: " + file.getAbsolutePath());
+                    } else {
+                        System.out.println("Failed to delete: " + file.getAbsolutePath());
+                    }
+                }
+            }
+        }
+    }
+    public void deleteCsv(String filePath) {
+        String fileTxt = ".csv";
 
         File folder = new File(filePath);
         File[] files = folder.listFiles();
