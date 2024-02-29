@@ -259,10 +259,10 @@ public class CheckID {
                 ValueCVI > minCVI &&
                 ValueCVI < maxCVI) {
             Log.d("gggg", "本人");
-            callback.onResult("本人");
+            callback.onResult("isMe");
         } else {
             Log.d("gggg", "非本人");
-            callback.onResult("非本人");
+            callback.onResult("isNotMe");
         }
     }
 

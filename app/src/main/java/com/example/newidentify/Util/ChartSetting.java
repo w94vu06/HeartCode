@@ -2,8 +2,10 @@ package com.example.newidentify.Util;
 
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.util.Log;
 
 import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.Description;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
@@ -105,4 +107,69 @@ public class ChartSetting {
 
         return dataSet;
     }
+
+    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up) {
+        // 繪製ECG信號
+        List<Entry> entries = new ArrayList<>();
+        for (int i = 0; i < ecg_signal_origin.length; i++) {
+            // 將ECG信號的數據點轉換為Entry對象並添加到entries列表
+            entries.add(new Entry(i, ecg_signal_origin[i]));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
+        dataSet.setColor(Color.BLACK);
+        dataSet.setValueTextColor(Color.BLACK);
+        dataSet.setDrawCircles(false); // 設置不畫圓點
+        dataSet.setDrawValues(false); // 設置不繪製數值
+
+        LineData lineData = new LineData(dataSet);
+
+        // 標記R點
+        List<Entry> rEntries = new ArrayList<>();
+        for (int index : R_index_up) {
+            Log.d("RRRR", "markRT: "+index);
+            rEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
+        }
+
+        LineDataSet rDataSet = new LineDataSet(rEntries, "R Points");
+        rDataSet.setCircleColor(Color.RED);
+        rDataSet.setCircleRadius(6f);
+        rDataSet.setDrawCircles(true); // 設置畫圓點
+        rDataSet.setDrawValues(false);
+        lineData.addDataSet(rDataSet);
+
+        // 標記T點
+        List<Entry> tEntries = new ArrayList<>();
+        for (int index : T_index_up) {
+            Log.d("TTTT", "markRT: "+index);
+            tEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
+        }
+
+        LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
+        tDataSet.setCircleColor(Color.BLUE);
+        tDataSet.setCircleRadius(6f);
+        tDataSet.setDrawCircles(true); // 設置畫圓點
+        tDataSet.setDrawValues(false);
+        tDataSet.setColor(Color.WHITE);
+        lineData.addDataSet(tDataSet);
+
+        // 將LineData對象設定給圖表並刷新
+        chart.setData(lineData);
+        // 去掉左側Y軸標籤
+        chart.getAxisLeft().setDrawLabels(false);
+
+        // 去掉右側Y軸標籤
+        chart.getAxisRight().setDrawLabels(false);
+
+        // 去掉圖表的描述標籤
+        Description description = new Description();
+        description.setText(""); // 將描述設置為空字符串
+        chart.setDescription(description);
+
+        // 隱藏圖例，如果您不希望顯示「ECG Signal」、「R Points」、「T Points」等標籤
+        chart.getLegend().setEnabled(false);
+
+        chart.invalidate();
+    }
+
 }

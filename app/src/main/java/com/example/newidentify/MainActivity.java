@@ -123,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     public static LineChart lineChart;
     public static LineChart chart_df;
     public static LineChart chart_df2;
+    public static LineChart chart_df3;
     private ChartSetting chartSetting;
     ///////////////////////
     //////畫心電圖使用///////
@@ -183,6 +184,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
         chart_df2 = findViewById(R.id.chart_df2);
+        chart_df3 = findViewById(R.id.chart_df3);
 
         initchart();//初始化圖表
         initObject();//初始化物件
@@ -691,8 +693,11 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 ArrayList<Double> doubles = floatArrayToDoubleList(bpmCountThread.ecg_signal_origin);
                 String date = new SimpleDateFormat("yyyyMMddhhmmss",
                         Locale.getDefault()).format(System.currentTimeMillis());
-//                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
+                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
+                chartSetting.markRT(chart_df3, bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up, bpmCountThread.T_index_up);
+
                 calMidError(bpmCountThread.ecg_signal_origin);
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -747,6 +752,8 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             float median_T = bpmCountThread.calculateMedian(bpmCountThread.T_dot_up);
             float max_T = bpmCountThread.calculateMax(bpmCountThread.T_dot_up);
             float std_T = bpmCountThread.calculateSTD(bpmCountThread.T_dot_up);
+            float voltMed = bpmCountThread.calVoltDiffMed(bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up, bpmCountThread.T_index_up);
+            float distanceMed = bpmCountThread.calDistanceDiffMed(bpmCountThread.R_index_up, bpmCountThread.T_index_up);
 
             List<Integer> halfWidth = bpmCountThread.calculateHalfWidths(bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up);
 
@@ -756,15 +763,12 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             String r_value = "\nRV-med:" + median_R + "/RV-max:" + max_R + "/RV-std:" + std_R;
             String t_value = "\nTV-med:" + median_T + "/TV-max:" + max_T + "/TV-std:" + std_T;
             String r_halfWidth = "\nR-halfWidth:" + averageHalfWidthValue;
-            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth);
-            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue;
-
+            String rt_voltMed = "\nRT-電壓差:" + voltMed;
+            String rt_distanceMed = "\nRT-時間差:" + distanceMed;
+            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed);
             txt_result.setText(diff_value);
 
-            if (averageDiff4Num_self < -0.8) {
-//                ShowToast("訊號品質不好，請重新量測");
-//                txt_checkID_result.setText("訊號品質不好，請重新量測");
-            }
+            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue + "," + voltMed + "," + distanceMed;
         }
     }
 
@@ -826,16 +830,44 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                String isYouString = "";
                 if (result.isEmpty() || result.equals("null")) {
-                    String s = "量測失敗";
-                    Log.d("excel", diff_value_toExcel + "," + s);
-                    txt_checkID_result.setText(s);
+                    isYouString = "Detect Fail";
+                    txt_checkID_result.setText(isYouString);
                 } else {
-                    txt_checkID_result.setText(result);
-                    Log.d("excel", diff_value_toExcel + "," + result);
+                    isYouString = result;
+                    if (result.equals("isMe")) {
+                        txt_checkID_result.setText("本人");
+                    } else {
+                        txt_checkID_result.setText("非本人");
+                    }
                 }
+                String dateTime = new SimpleDateFormat("yyyyMMddHHmmss",
+                        Locale.getDefault()).format(System.currentTimeMillis());
+
+                recordOutput(dateTime + "," + diff_value_toExcel + "," + isYouString);
             }
         });
+    }
+
+    public void recordOutput(String finalResult) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ArrayList<String> recordList = new ArrayList<>();
+
+                // 使用 split 方法根據逗號分隔 finalResult 字串
+                String[] results = finalResult.split(",");
+
+                // 將分割後的結果添加到 recordList 中
+                for (String result : results) {
+                    recordList.add(result.trim()); // trim() 移除前後的空白字符
+                }
+
+                // 接下來可以將 recordList 中的數據寫入到文件中
+                csvMaker.writeRecordToFile(recordList); // 假設有一個寫入文件的方法
+            }
+        }).start();
     }
 
     @Override

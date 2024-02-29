@@ -37,18 +37,17 @@ public class BpmCountThread extends Thread {
     List<Float> peakListUp = new ArrayList();
     List<Float> peakListDown = new ArrayList();
 
-    public List<Float> R_dot_up = new ArrayList();
-    List<Float> R_dot_down = new ArrayList();
+    public List<Float> R_dot_up = new ArrayList();//R點數據
     public List<Integer> R_index_up = new ArrayList();//R點索引
 
-    List<Integer> R_index_down = new ArrayList();
+    public List<Float> R_dot_down = new ArrayList();
+    public List<Integer> R_index_down = new ArrayList();
+
+    public List<Float> T_dot_up = new ArrayList<>(); //T點數據
+    public List<Integer> T_index_up = new ArrayList<>(); //T點索引
 
     List<Integer> RRIUp = new ArrayList<>();
     List<Integer> RRIDown = new ArrayList<>();
-
-    public List<Float> T_dot_up = new ArrayList<>(); //T點
-    List<Integer> T_index = new ArrayList<>(); //T點索引
-
     @Override
     public void run() {
         super.run();
@@ -81,10 +80,8 @@ public class BpmCountThread extends Thread {
             }
         }
 
-        findPeaks(ecg_signal_origin, 1.5);
-        //找出上下的R
-        calPeakListUp();
-        calPeakListDown();
+        findPeaks(ecg_signal_origin, 1.2);
+
         findTDot();
 
         /** 算平均心率 */
@@ -118,7 +115,8 @@ public class BpmCountThread extends Thread {
 
     private void findPeaks(Float[] resultFloatArray, double peakThresholdFactor) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
-        int chunkSize = 4500;
+//        int chunkSize = 4500;
+        int chunkSize = 3000;
         for (int i = 0; i < resultFloatArray.length; i += chunkSize) {
             int endIndex = Math.min(i + chunkSize, resultFloatArray.length);
             Float[] chunk = Arrays.copyOfRange(resultFloatArray, i, endIndex);
@@ -160,9 +158,9 @@ public class BpmCountThread extends Thread {
             RRIUp.clear();
             RRIDown.clear();
             T_dot_up.clear();
-            T_index.clear();
+            T_index_up.clear();
 
-            findPeaks(resultFloatArray, 2.5);
+            findPeaks(resultFloatArray, 2.4);
         }
         Log.d("Rindex", "findPeaks: " + R_index_up.size());
 
@@ -172,7 +170,7 @@ public class BpmCountThread extends Thread {
         float maxFloat = 0;
         boolean insideR = false;
 
-        // 清空之前的数据
+        // 清空數據
         RRIUp.clear();
         R_dot_up.clear();
         R_index_up.clear();
@@ -197,7 +195,6 @@ public class BpmCountThread extends Thread {
             RRIUp.add((R_index_up.get(i + 1)) - R_index_up.get(i));
         }
     }
-
 
     public void calPeakListDown() {
         float minFloat = 0;
@@ -224,31 +221,56 @@ public class BpmCountThread extends Thread {
     public void findTDot() {
         // 遍歷 R_index，找出每個 R 點之間的最大值
         for (int i = 0; i < R_index_up.size() - 1; i++) {
-            int start = R_index_up.get(i);
+            int start = R_index_up.get(i)+50;
             int end = R_index_up.get(i + 1);
-            float maxBetweenR = 0;
+            int midPoint = (start + (end - start) / 2) - 50; // 計算中點
+            float maxBetweenR = Float.MIN_VALUE;
+            int tIndex = midPoint; // T點的初始索引為中點
 
-            // 找出兩個 R 點之間的最大值
-            for (int j = start + 1; j < end; j++) {
-                float value = peakListUp.get(j);
-                maxBetweenR = Math.max(maxBetweenR, value);
+            // 從 R 點的中點開始向前尋找，找出兩個 R 點之間的最大值
+            for (int j = midPoint; j >= start; j--) {
+                float value = ecg_signal_origin[j];
+                if (value > maxBetweenR) {
+                    maxBetweenR = value;
+                    tIndex = j; // 更新 T 點的索引
+                }
             }
 
-            // 將最大值添加到列表中
+            // 將最大值和對應的索引添加到列表中
             T_dot_up.add(maxBetweenR);
+            T_index_up.add(tIndex); // 添加 T 點的索引
         }
 
         // 輸出結果
-        for (float maxValue : T_dot_up) {
-            Log.d("MaxValueBetweenR", String.valueOf(maxValue));
+        for (int i = 0; i < T_dot_up.size(); i++) {
+            Log.d("TMaxValue", "Value: " + T_dot_up.get(i) + ", Index: " + T_index_up.get(i));
+        }
+    }
+
+
+    public float calVoltDiffMed(Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up) {
+        List<Float> voltageDifferences = new ArrayList<>();
+
+        for (int i = 0; i < Math.min(R_index_up.size(), T_index_up.size()); i++) {
+            float rVoltage = ecg_signal_origin[R_index_up.get(i)];
+            float tVoltage = ecg_signal_origin[T_index_up.get(i)];
+            float difference = Math.abs(rVoltage - tVoltage);
+            voltageDifferences.add(difference);
         }
 
-        //拿到T的索引
-        for (int i = 0; i < peakListUp.size(); i++) {
-            if (T_dot_up.contains(peakListUp.get(i))) {
-                T_index.add(i);
-            }
+        return calculateMedian(voltageDifferences);
+    }
+
+
+    public float calDistanceDiffMed(List<Integer> R_index_up, List<Integer> T_index_up) {
+        List<Float> distanceDifferences = new ArrayList<>();
+
+        for (int i = 0; i < Math.min(R_index_up.size(), T_index_up.size()); i++) {
+            float difference = Math.abs(R_index_up.get(i) - T_index_up.get(i));
+            distanceDifferences.add(difference);
         }
+
+        return calculateMedian(distanceDifferences);
     }
 
     /**

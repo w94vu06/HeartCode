@@ -183,6 +183,17 @@
                 android:layout_marginStart="@dimen/dp_8"
                 android:layout_marginEnd="@dimen/dp_8" />
 
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_10"/>
+
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chart_df3"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_180"
+                android:layout_marginStart="@dimen/dp_8"
+                android:layout_marginEnd="@dimen/dp_8" />
+
         </LinearLayout>
 
     </ScrollView>

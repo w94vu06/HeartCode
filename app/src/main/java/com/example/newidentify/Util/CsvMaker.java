@@ -9,6 +9,10 @@ import android.os.StrictMode;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +29,6 @@ public class CsvMaker {
     public void makeCSVDouble(ArrayList<Double> doubles, String fileName) {
         new Thread(() -> {
             /** 檔名 */
-            String date = new SimpleDateFormat("yyyyMMddhhmmss",
-                    Locale.getDefault()).format(System.currentTimeMillis());
             String[] title = {"Lead2"};
             StringBuffer csvText = new StringBuffer();
             for (int i = 0; i < title.length; i++) {
@@ -37,7 +39,7 @@ public class CsvMaker {
                 csvText.append("\n" + doubles.get(i));
             }
 
-            ((Activity) context).runOnUiThread(() ->{
+            ((Activity) context).runOnUiThread(() -> {
                 try {
                     StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
                     StrictMode.setVmPolicy(builder.build());
@@ -77,7 +79,7 @@ public class CsvMaker {
                 csvText.append("\n" + floats[i]);
             }
 
-            ((Activity) context).runOnUiThread(() ->{
+            ((Activity) context).runOnUiThread(() -> {
                 try {
                     StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
                     StrictMode.setVmPolicy(builder.build());
@@ -160,4 +162,35 @@ public class CsvMaker {
             });
         }).start();
     }
+
+    public void writeRecordToFile(ArrayList<String> strings) {
+        new Thread(() -> {
+            String folderName = "revlis_record";
+            String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + folderName;
+            // 檢查資料夾是否存在，如果不存在則創建
+            File directory = new File(directoryPath);
+            if (!directory.exists()) {
+                directory.mkdirs(); // 創建資料夾
+            }
+            /** 檔名 */
+            String fileName = "revlis_record.csv";
+            String filePath = directoryPath + File.separator + fileName;
+            File file = new File(filePath);
+
+            try (FileWriter writer = new FileWriter(file, true)) {
+                /** 如果文件不存在或者文件大小為0，則寫入標頭 */
+                if (!file.exists() || file.length() == 0) {
+                    String[] title = {"Time", "own_diff", "regi_diff", "RV-med", "RV-max", "RV-std",
+                            "TV-med", "TV-max", "TV-std", "avg-halfWidth","RT-VDiff","RT-Distance", "isYou"};
+                    writer.write(String.join(",", title) + "\n");
+                }
+
+                /** 寫入數據 */
+                writer.write(String.join(",", strings) + "\n");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }//makeCSV
+
 }
