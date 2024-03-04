@@ -77,7 +77,7 @@ public class CheckID {
     private void initCheck() {
         if (fileName == null) {
             Log.d("gggg", "initCheck 發生問題，請重新量測");
-            callback.onCheckIDError("量測失敗，請重新量測");
+            callback.onCheckIDError("initCheck_量測失敗，請重新量測");
             return;
         }
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
@@ -93,12 +93,12 @@ public class CheckID {
                 initIdentify();
             } catch (Exception e) {
                 Log.d("gggg", "decpEcgFile 發生問題，請重新量測");
-                callback.onCheckIDError("量測失敗，請重新量測: " + e.getMessage());
+                callback.onCheckIDError("initCheck2_量測失敗，請重新量測: " + e.getMessage());
             }
         } else if (extension.equalsIgnoreCase("cha")) {
             initIdentify();
         } else {
-            callback.onCheckIDError("量測失敗，請重新量測");
+            callback.onCheckIDError("initCheck3_量測失敗，請重新量測");
         }
     }
 
@@ -114,7 +114,7 @@ public class CheckID {
 
         if (errorCode == 1) {
             Log.e("Error", "anaEcgFile failed with errorCode " + errorCode);
-            callback.onCheckIDError("量測失敗，請重新量測");
+            callback.onCheckIDError("initIdentify_量測失敗，請重新量測");
             callback.onDetectDataError("計算錯誤");
             return;
         }
@@ -140,7 +140,7 @@ public class CheckID {
             parseFile(file);
         } catch (Exception e) {
             Log.e("catchError", e.toString());
-            callback.onCheckIDError("量測失敗，請重新量測");
+            callback.onCheckIDError("initIdentify2_量測失敗，請重新量測");
         }
     }
 
@@ -259,10 +259,10 @@ public class CheckID {
                 ValueCVI > minCVI &&
                 ValueCVI < maxCVI) {
             Log.d("gggg", "本人");
-            callback.onResult("isMe");
+            callback.onResult("本人");
         } else {
             Log.d("gggg", "非本人");
-            callback.onResult("isNotMe");
+            callback.onResult("非本人");
         }
     }
 

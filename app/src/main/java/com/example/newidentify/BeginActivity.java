@@ -1,12 +1,14 @@
 package com.example.newidentify;
 
 import android.Manifest;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PersistableBundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -33,6 +35,7 @@ public class BeginActivity extends AppCompatActivity {
         btn_signUp = findViewById(R.id.btn_signUp);
         btn_clear_lp4 = findViewById(R.id.btn_clear_lp4);
         initPermission();
+        checkStorageManagerPermission();//檢查儲存權限
         Intent it = new Intent();
 
         btn_signUp.setOnClickListener(new View.OnClickListener() {
@@ -70,6 +73,22 @@ public class BeginActivity extends AppCompatActivity {
         mPermissionList.add(Manifest.permission.READ_EXTERNAL_STORAGE);
 
         ActivityCompat.requestPermissions(this, mPermissionList.toArray(new String[0]), 1001);
+    }
+
+    private void checkStorageManagerPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
+        } else {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setMessage("本程式需要您同意允許存取所有檔案權限");
+            builder.setPositiveButton("同意", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    startActivity(intent);
+                }
+            });
+            builder.show();
+        }
     }
 
 

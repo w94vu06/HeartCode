@@ -48,6 +48,7 @@ public class BpmCountThread extends Thread {
 
     List<Integer> RRIUp = new ArrayList<>();
     List<Integer> RRIDown = new ArrayList<>();
+
     @Override
     public void run() {
         super.run();
@@ -80,7 +81,7 @@ public class BpmCountThread extends Thread {
             }
         }
 
-        findPeaks(ecg_signal_origin, 1.2);
+        findPeaks(ecg_signal_origin, 1.5);
 
         findTDot();
 
@@ -115,8 +116,7 @@ public class BpmCountThread extends Thread {
 
     private void findPeaks(Float[] resultFloatArray, double peakThresholdFactor) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
-//        int chunkSize = 4500;
-        int chunkSize = 3000;
+        int chunkSize = 4500;
         for (int i = 0; i < resultFloatArray.length; i += chunkSize) {
             int endIndex = Math.min(i + chunkSize, resultFloatArray.length);
             Float[] chunk = Arrays.copyOfRange(resultFloatArray, i, endIndex);
@@ -160,7 +160,7 @@ public class BpmCountThread extends Thread {
             T_dot_up.clear();
             T_index_up.clear();
 
-            findPeaks(resultFloatArray, 2.4);
+            findPeaks(resultFloatArray, 2.5);
         }
         Log.d("Rindex", "findPeaks: " + R_index_up.size());
 
@@ -196,6 +196,7 @@ public class BpmCountThread extends Thread {
         }
     }
 
+
     public void calPeakListDown() {
         float minFloat = 0;
         for (float f : peakListDown) {
@@ -221,7 +222,7 @@ public class BpmCountThread extends Thread {
     public void findTDot() {
         // 遍歷 R_index，找出每個 R 點之間的最大值
         for (int i = 0; i < R_index_up.size() - 1; i++) {
-            int start = R_index_up.get(i)+50;
+            int start = R_index_up.get(i) + 50;
             int end = R_index_up.get(i + 1);
             int midPoint = (start + (end - start) / 2) - 50; // 計算中點
             float maxBetweenR = Float.MIN_VALUE;
@@ -246,7 +247,6 @@ public class BpmCountThread extends Thread {
             Log.d("TMaxValue", "Value: " + T_dot_up.get(i) + ", Index: " + T_index_up.get(i));
         }
     }
-
 
     public float calVoltDiffMed(Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up) {
         List<Float> voltageDifferences = new ArrayList<>();
@@ -284,12 +284,14 @@ public class BpmCountThread extends Thread {
             return list.get(list.size() / 2);
         }
     }
+
     /**
      * 取最大值
      */
     public float calculateMax(List<Float> list) {
         return Collections.max(list);
     }
+
     /**
      * 取標準差
      */

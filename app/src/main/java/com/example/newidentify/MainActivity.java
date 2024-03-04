@@ -188,8 +188,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
         initchart();//初始化圖表
         initObject();//初始化物件
-        initPermission();//檢查權限
-        checkStorageManagerPermission();//檢查儲存權限
         initDeviceDialog();//裝置選擇Dialog
 
         checkID.readRecord();//讀取註冊檔案存檔
@@ -334,46 +332,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
         // 顯示對話框
         deviceDialog.show();
-    }
-
-    /**
-     * 檢查權限
-     **/
-    public void initPermission() {
-        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1000);
-        }
-        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
-        }
-
-        List<String> mPermissionList = new ArrayList<>();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            mPermissionList.add(Manifest.permission.BLUETOOTH_SCAN);
-            mPermissionList.add(Manifest.permission.BLUETOOTH_ADVERTISE);
-            mPermissionList.add(Manifest.permission.BLUETOOTH_CONNECT);
-        } else {
-            mPermissionList.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-            mPermissionList.add(Manifest.permission.ACCESS_FINE_LOCATION);
-            mPermissionList.add(Manifest.permission.MANAGE_EXTERNAL_STORAGE);
-        }
-        ActivityCompat.requestPermissions(this, mPermissionList.toArray(new String[0]), 1001);
-    }
-
-    private void checkStorageManagerPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
-        } else {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setMessage("本程式需要您同意允許存取所有檔案權限");
-            builder.setPositiveButton("同意", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                    startActivity(intent);
-                }
-            });
-            builder.show();
-        }
     }
 
     @Override
@@ -829,19 +787,14 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     public void onResult(String result) {
         runOnUiThread(new Runnable() {
             @Override
-            public void run() {
+            public void run() {//量測結果
                 String isYouString = "";
                 if (result.isEmpty() || result.equals("null")) {
-                    isYouString = "Detect Fail";
-                    txt_checkID_result.setText(isYouString);
+                    isYouString = "量測失敗";
                 } else {
                     isYouString = result;
-                    if (result.equals("isMe")) {
-                        txt_checkID_result.setText("本人");
-                    } else {
-                        txt_checkID_result.setText("非本人");
-                    }
                 }
+                txt_checkID_result.setText(isYouString);
                 String dateTime = new SimpleDateFormat("yyyyMMddHHmmss",
                         Locale.getDefault()).format(System.currentTimeMillis());
 

@@ -2414,7 +2414,7 @@ Java_com_example_newidentify_MainActivity_anaEcgFile(JNIEnv *env,  jobject /* th
         double HRV_MedianNN = 0.0;
         double HRV_ShanEn = Cal_HRV_ShanEn(RRarray4UID, (int) nRRsize, &HRV_MedianNN);
 
-        printResult = fprintf( pOut2, "Max:%.3f,Min:%.3f,Average:%.3f, Standard Deviation:%.3f,VLF:%.3f,LF:%.3f,HF:%.3f,NN50:%d,PNN50:%.5f,RMSSD:%.3f,MedianNN:%.3f,PI:%.4f,GI:%.4f,SI:%.4f,CVI:%.4f,CD:%.4f,C1a:%.4f,ShanEn:%.4f\n",
+        printResult = fprintf( pOut2, "Max:%.3f,Min:%.3f,Average:%.3f,Standard Deviation:%.3f,VLF:%.3f,LF:%.3f,HF:%.3f,NN50:%d,PNN50:%.5f,RMSSD:%.3f,MedianNN:%.3f,PI:%.4f,GI:%.4f,SI:%.4f,CVI:%.4f,CD:%.4f,C1a:%.4f,ShanEn:%.4f\n",
                                HRfileMax, HRfileMin, HRavg, HRstdDev, HRV_VLF, HRV_LF, HRV_HF, HRV_50n,
                                PNN50, HRV_RMSSD, HRV_MedianNN, HRV_PI, HRV_GI, HRV_SI, HRV_CVI, HRV_CD, HRV_C1a,
                                HRV_ShanEn );
