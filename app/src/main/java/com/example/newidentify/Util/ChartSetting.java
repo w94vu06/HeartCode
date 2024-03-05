@@ -141,7 +141,6 @@ public class ChartSetting {
         // 標記T點
         List<Entry> tEntries = new ArrayList<>();
         for (int index : T_index_up) {
-            Log.d("TTTT", "markRT: "+index);
             tEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
         }
 

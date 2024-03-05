@@ -10,13 +10,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class DecodeCHAFile extends Thread {
+public class DecodeCha extends Thread {
     String filePath;
     CellData cell;
     public ArrayList<Float> finalCHAData = new ArrayList();
-    private static final String TAG = "DecodeCHAFile";
+    private static final String TAG = "DecodeCha";
     //處理CHA
-    public DecodeCHAFile(String filePath) {
+    public DecodeCha(String filePath) {
         this.filePath = filePath;
     }
 

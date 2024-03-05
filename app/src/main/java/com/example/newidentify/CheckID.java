@@ -77,7 +77,7 @@ public class CheckID {
     private void initCheck() {
         if (fileName == null) {
             Log.d("gggg", "initCheck 發生問題，請重新量測");
-            callback.onCheckIDError("initCheck_量測失敗，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
             return;
         }
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
@@ -93,12 +93,12 @@ public class CheckID {
                 initIdentify();
             } catch (Exception e) {
                 Log.d("gggg", "decpEcgFile 發生問題，請重新量測");
-                callback.onCheckIDError("initCheck2_量測失敗，請重新量測: " + e.getMessage());
+                callback.onCheckIDError("量測失敗，請重新量測: " + e.getMessage());
             }
         } else if (extension.equalsIgnoreCase("cha")) {
             initIdentify();
         } else {
-            callback.onCheckIDError("initCheck3_量測失敗，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
         }
     }
 
@@ -114,7 +114,7 @@ public class CheckID {
 
         if (errorCode == 1) {
             Log.e("Error", "anaEcgFile failed with errorCode " + errorCode);
-            callback.onCheckIDError("initIdentify_量測失敗，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
             callback.onDetectDataError("計算錯誤");
             return;
         }
@@ -140,7 +140,7 @@ public class CheckID {
             parseFile(file);
         } catch (Exception e) {
             Log.e("catchError", e.toString());
-            callback.onCheckIDError("initIdentify2_量測失敗，請重新量測");
+            callback.onCheckIDError("量測失敗，請重新量測");
         }
     }
 
@@ -157,8 +157,10 @@ public class CheckID {
                     String[] nameValue = part.split(":");
                     if (nameValue.length >= 2) {
                         String name = nameValue[0].trim();
-                        String value = nameValue[1].trim();
-                        dataHashMap.put(name, value);
+                        String valueStr = nameValue[1].trim();
+                        // 檢查valueStr是否表示有效的數值，如果無效則將其替換為"0.000"
+                        String validValueStr = isValidNumber(valueStr) ? valueStr : "0.000";
+                        dataHashMap.put(name, validValueStr);
                     }
                 }
             }
@@ -166,6 +168,20 @@ public class CheckID {
         }
     }
 
+    /**
+     * 檢查字串是否可以轉換為有效的數值。
+     * @param str 要檢查的字串
+     * @return 如果字串表示有效數值，則傳回true；否則傳回false。
+     */
+    private boolean isValidNumber(String str) {
+        try {
+            // 嘗試將字串轉換為浮點數
+            Float.parseFloat(str);
+            return true; // 轉換成功，是有效數值
+        } catch (NumberFormatException e) {
+            return false; // 轉換失敗，不是有效數值
+        }
+    }
 
     private void updateValues() {
         int dataCollectionLimit = 5;

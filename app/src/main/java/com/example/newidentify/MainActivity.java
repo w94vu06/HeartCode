@@ -4,30 +4,24 @@ import static com.example.newidentify.processData.SignalProcess.Butterworth;
 import static java.lang.Math.abs;
 import static java.lang.Math.getExponent;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.MediaScannerConnection;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
@@ -41,9 +35,9 @@ import com.example.newidentify.Util.ChartSetting;
 import com.example.newidentify.Util.CheckIDCallback;
 import com.example.newidentify.Util.CleanFile;
 import com.example.newidentify.Util.TinyDB;
-import com.example.newidentify.processData.BpmCountThread;
+import com.example.newidentify.processData.DecodeCha;
+import com.example.newidentify.processData.FindPeaks;
 import com.example.newidentify.Util.CsvMaker;
-import com.example.newidentify.processData.DecodeCHAFile;
 import com.example.newidentify.processData.SignalProcess;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
@@ -92,18 +86,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
     private String getfileName;
     private String getFilePath = "";
-    private final int dataCollectionLimit = 5;//設定檔案收集數量，最高20
-    private ChooserDialog chooserDialog; //檔案選擇器
-    private final Map<String, String> dataMap = new HashMap<>();
-    private final ArrayList<Double> heartRate = new ArrayList<>();
-    private final ArrayList<Double> PI = new ArrayList<>();
-    private final ArrayList<Double> CVI = new ArrayList<>();
-    private final ArrayList<Double> C1a = new ArrayList<>();
     private static ArrayList<Float> save15secWaveData = new ArrayList<>();//取15秒的資料
-    double averageHR, averagePI, averageCVI, averageC1a;
-    double maxPI, maxCVI, maxC1a;
-    double minPI, minCVI, minC1a;
-    double ValueHR, ValuePI, ValueCvi, ValueC1a;
 
     // Used to load the 'newidentify' library on application startup.
     static {
@@ -120,11 +103,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     TinyDB tinyDB;
     public static TextView txt_BleStatus;
     //    public static TextView Percent_Text;
-    public static LineChart lineChart;
-    public static LineChart chart_df;
-    public static LineChart chart_df2;
-    public static LineChart chart_df3;
-    private ChartSetting chartSetting;
+
     ///////////////////////
     //////畫心電圖使用///////
     //////////////////////
@@ -136,6 +115,12 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     boolean isPreChecked = false;
     private static final int COUNTDOWN_INTERVAL = 1000;
     private static final int COUNTDOWN_TOTAL_TIME = 30000;
+
+    public static LineChart lineChart;
+    public static LineChart chart_df;
+    public static LineChart chart_df2;
+    public static LineChart chart_df3;
+    private ChartSetting chartSetting;
 
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
     public static ArrayList<Double> oldValue = new ArrayList<Double>();
@@ -157,9 +142,9 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     /**
      * L2D
      */
-    private DecodeCHAFile decodeCHAFile;
+    private DecodeCha decodeCha;
     private SignalProcess signalProcess;
-    private BpmCountThread bpmCountThread;
+    private FindPeaks findPeaks;
     private CleanFile cleanFile;
     private CsvMaker csvMaker = new CsvMaker(this);
     private CheckID checkID;
@@ -468,9 +453,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                         txt_countDown.setText(String.valueOf(remainingTime / 1000));
                         remainingTime -= COUNTDOWN_INTERVAL;
                         countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
-//                        if (!isPreChecked) {
-//                            preCheckSignal();
-//                        }
                     }
                 } else {
                     bt4.isTenSec = false;
@@ -528,7 +510,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
                 if (step[0] == 1) {
                     Log.d("wwwww", "打開檔案");
-
                     bt4.Open_File(this);
                 }
 
@@ -622,16 +603,16 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             File chaFile = new File(Environment.getExternalStorageDirectory(), fileName);
             Log.d("FilePaths", "chaFile: " + chaFile);
             if (chaFile.exists()) {
-                decodeCHAFile = new DecodeCHAFile(chaFile.getAbsolutePath());
+                decodeCha = new DecodeCha(chaFile.getAbsolutePath());
                 try {
-                    decodeCHAFile.run();
-                    decodeCHAFile.join();
+                    decodeCha.run();
+                    decodeCha.join();
                     ShowToast("匯入CHA成功");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
 
-                calculateRR(decodeCHAFile.finalCHAData);
+                calculateRR(decodeCha.finalCHAData);
             } else {
                 Log.e("CHAFileNotFound", "CHA檔案不存在：" + fileName);
             }
@@ -645,16 +626,17 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             Log.e("EmptyDataList", "dataList為空");
         } else {
             try {
-                bpmCountThread = new BpmCountThread(dataList);
-                bpmCountThread.run();
+                findPeaks = new FindPeaks(dataList);
+                findPeaks.run();
                 //makeCsv  ArrayList<Double>
-                ArrayList<Double> doubles = floatArrayToDoubleList(bpmCountThread.ecg_signal_origin);
+                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
                 String date = new SimpleDateFormat("yyyyMMddhhmmss",
                         Locale.getDefault()).format(System.currentTimeMillis());
-                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
-                chartSetting.markRT(chart_df3, bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up, bpmCountThread.T_index_up);
+//                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
+                //畫圖
+                chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
 
-                calMidError(bpmCountThread.ecg_signal_origin);
+                calMidError(findPeaks.ecg_signal_origin);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -664,14 +646,15 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     }
 
     public void calMidError(Float[] floats) {
-        List<Integer> R_index = bpmCountThread.R_index_up;
+        List<Integer> R_index = findPeaks.R_index_up;
         if (R_index.size() > 10) {
-            //取得已經過濾過的RR 100(4張圖)
+
+            //取得已經過濾過的RR100(4張圖)
             List<Float> df1 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(10), R_index.get(12));
             List<Float> df2 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(3), R_index.get(5));
             List<Float> df3 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(6), R_index.get(8));
             List<Float> df4 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
-
+            //取註冊數據
             if (tinyDB.getListFloat("df1").size() < 10) {
                 tinyDB.putString("chooserFileName", getfileName);
                 tinyDB.putListFloat("df1", df1);
@@ -681,42 +664,41 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             } else {
                 Log.d("TinyDB", "已經有第一段數據了");
             }
-            String firstFileName = tinyDB.getString("chooserFileName");
             //輸出自己與別人的差異
             List<Float> df1_ = tinyDB.getListFloat("df1");
-//            List<Float> df2_ = tinyDB.getListFloat("df2");
-//            List<Float> df3_ = tinyDB.getListFloat("df3");
-//            List<Float> df4_ = tinyDB.getListFloat("df4");
+
             //計算自己的差異
             float diff12 = signalProcess.calMidDiff(df1, df2);
             float diff13 = signalProcess.calMidDiff(df1, df3);
             float diff14 = signalProcess.calMidDiff(df1, df4);
             float diff23 = signalProcess.calMidDiff(df2, df3);
             //計算別人的差異(只用df1)
+            float diff11_ = signalProcess.calMidDiff(df1_, df1);
             float diff12_ = signalProcess.calMidDiff(df1_, df2);
             float diff13_ = signalProcess.calMidDiff(df1_, df3);
             float diff14_ = signalProcess.calMidDiff(df1_, df4);
-            float diff23_ = signalProcess.calMidDiff(df2, df3);
 
+            //畫圖
             chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
             chartSetting.overlapChart(chart_df2, df1_, df2, df3, df4, Color.BLACK, Color.parseColor("#F596AA"));
 
+            //計算平均差異
             float averageDiff4Num_self = (diff12 + diff13 + diff14 + diff23) / 4;
-            float averageDiff4Num_sb = (diff12_ + diff13_ + diff14_ + diff23_) / 4;
+            float averageDiff4Num_sb = (diff12_ + diff13_ + diff14_ + diff11_) / 4;
 
-            float median_R = bpmCountThread.calculateMedian(bpmCountThread.R_dot_up);
-            float max_R = bpmCountThread.calculateMax(bpmCountThread.R_dot_up);
-            float std_R = bpmCountThread.calculateSTD(bpmCountThread.R_dot_up);
-            float median_T = bpmCountThread.calculateMedian(bpmCountThread.T_dot_up);
-            float max_T = bpmCountThread.calculateMax(bpmCountThread.T_dot_up);
-            float std_T = bpmCountThread.calculateSTD(bpmCountThread.T_dot_up);
-            float voltMed = bpmCountThread.calVoltDiffMed(bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up, bpmCountThread.T_index_up);
-            float distanceMed = bpmCountThread.calDistanceDiffMed(bpmCountThread.R_index_up, bpmCountThread.T_index_up);
-
-            List<Integer> halfWidth = bpmCountThread.calculateHalfWidths(bpmCountThread.ecg_signal_origin, bpmCountThread.R_index_up);
-
-            averageHalfWidthValue = bpmCountThread.calculateHalfWidthsAverage(halfWidth);
-
+            //計算R T的中位數、最大值、標準差
+            float median_R = findPeaks.calculateMedian(findPeaks.R_dot_up);
+            float max_R = findPeaks.calculateMax(findPeaks.R_dot_up);
+            float std_R = findPeaks.calculateSTD(findPeaks.R_dot_up);
+            float median_T = findPeaks.calculateMedian(findPeaks.T_dot_up);
+            float max_T = findPeaks.calculateMax(findPeaks.T_dot_up);
+            float std_T = findPeaks.calculateSTD(findPeaks.T_dot_up);
+            float voltMed = findPeaks.calVoltDiffMed(findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
+            float distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
+            //計算R的半高寬
+            List<Integer> halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecg_signal_origin, findPeaks.R_index_up);
+            averageHalfWidthValue = findPeaks.calculateHalfWidthsAverage(halfWidth);
+            //輸出
             Log.d("hhhh", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
             String r_value = "\nRV-med:" + median_R + "/RV-max:" + max_R + "/RV-std:" + std_R;
             String t_value = "\nTV-med:" + median_T + "/TV-max:" + max_T + "/TV-std:" + std_T;

@@ -9,15 +9,15 @@ import java.util.List;
 
 import uk.me.berndporr.iirj.Butterworth;
 
-public class BpmCountThread extends Thread {
+public class FindPeaks extends Thread {
 
     private final List<Float> dataList;
 
-    public BpmCountThread(List<Float> dataList) {
+    public FindPeaks(List<Float> dataList) {
         this.dataList = dataList;
     }
 
-    private static final String TAG = "BpmCountThread";
+    private static final String TAG = "FindPeaks";
 
     float minValue = Float.MAX_VALUE;
     float maxValue = Float.MIN_VALUE;
@@ -114,12 +114,12 @@ public class BpmCountThread extends Thread {
         maxValueB = 0;
     }
 
-    private void findPeaks(Float[] resultFloatArray, double peakThresholdFactor) {
+    private void findPeaks(Float[] ecg_signal_origin, double peakThresholdFactor) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
         int chunkSize = 4500;
-        for (int i = 0; i < resultFloatArray.length; i += chunkSize) {
-            int endIndex = Math.min(i + chunkSize, resultFloatArray.length);
-            Float[] chunk = Arrays.copyOfRange(resultFloatArray, i, endIndex);
+        for (int i = 0; i < ecg_signal_origin.length; i += chunkSize) {
+            int endIndex = Math.min(i + chunkSize, ecg_signal_origin.length);
+            Float[] chunk = Arrays.copyOfRange(ecg_signal_origin, i, endIndex);
 
             // 找到該小數組的最大值和最小值
             float maxValue = Float.NEGATIVE_INFINITY;
@@ -160,10 +160,9 @@ public class BpmCountThread extends Thread {
             T_dot_up.clear();
             T_index_up.clear();
 
-            findPeaks(resultFloatArray, 2.5);
+            findPeaks(ecg_signal_origin, 2.5);
         }
         Log.d("Rindex", "findPeaks: " + R_index_up.size());
-
     }
 
     public void calPeakListUp() {
@@ -240,11 +239,6 @@ public class BpmCountThread extends Thread {
             // 將最大值和對應的索引添加到列表中
             T_dot_up.add(maxBetweenR);
             T_index_up.add(tIndex); // 添加 T 點的索引
-        }
-
-        // 輸出結果
-        for (int i = 0; i < T_dot_up.size(); i++) {
-            Log.d("TMaxValue", "Value: " + T_dot_up.get(i) + ", Index: " + T_index_up.get(i));
         }
     }
 
