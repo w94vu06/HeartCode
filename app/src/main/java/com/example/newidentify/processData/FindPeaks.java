@@ -34,7 +34,7 @@ public class FindPeaks extends Thread {
     double bpmUp;
     double bpmDown;
 
-    List<Float> peakListUp = new ArrayList();
+    public List<Float> peakListUp = new ArrayList();
     List<Float> peakListDown = new ArrayList();
 
     public List<Float> R_dot_up = new ArrayList();//R點數據
@@ -46,7 +46,9 @@ public class FindPeaks extends Thread {
     public List<Float> T_dot_up = new ArrayList<>(); //T點數據
     public List<Integer> T_index_up = new ArrayList<>(); //T點索引
 
-    List<Integer> RRIUp = new ArrayList<>();
+    public List<Integer> Q_index_up = new ArrayList<Integer>(); //Q點索引
+
+    public List<Integer> RRIUp = new ArrayList<>(); //RR間距
     List<Integer> RRIDown = new ArrayList<>();
 
     @Override
@@ -143,8 +145,10 @@ public class FindPeaks extends Thread {
             }
         }
 
+        Log.d(TAG, "peakListUp: " + peakListUp.size());
+
         // 遍歷 peakListUp 尋找 R 點
-        calPeakListUp();
+        adjustRPointPositions(ecg_signal_origin);
         calPeakListDown();
 
         if (R_index_up.size() <= 13) {
@@ -159,10 +163,44 @@ public class FindPeaks extends Thread {
             RRIDown.clear();
             T_dot_up.clear();
             T_index_up.clear();
+            Q_index_up.clear();
 
             findPeaks(ecg_signal_origin, 2.5);
         }
+//        adjustRPointPositions(ecg_signal_origin);
         Log.d("Rindex", "findPeaks: " + R_index_up.size());
+    }
+
+    public void adjustRPointPositions(Float[] ecg_signal_origin) {
+        List<Integer> adjustedRIndexUp = new ArrayList<>();
+        int windowSize = 100;
+
+        for (int originalIndex : R_index_up) {
+            int startIndex = Math.max(0, originalIndex - windowSize);
+            int endIndex = Math.min(ecg_signal_origin.length - 1, originalIndex + windowSize);
+            float maxVal = Float.NEGATIVE_INFINITY;
+            int maxIndex = originalIndex;
+
+            for (int i = startIndex; i <= endIndex; i++) {
+                if (ecg_signal_origin[i] > maxVal) {
+                    maxVal = ecg_signal_origin[i];
+                    maxIndex = i;
+                }
+            }
+
+            adjustedRIndexUp.add(maxIndex);
+        }
+
+        // 更新R_index_up為調整後的索引
+        R_index_up.clear();
+        R_index_up.addAll(adjustedRIndexUp);
+
+        // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
+        calPeakListUp();
+        // 如果需要，也可以在此處呼叫calPeakListDown和其他相關的處理方法
+
+        // 計算Q波位置
+
     }
 
     public void calPeakListUp() {
@@ -175,24 +213,59 @@ public class FindPeaks extends Thread {
         R_index_up.clear();
 
         // 遍歷 peakListUp 尋找 R 點
+        int maxIndex = -1; // 初始化最大值索引
+
         for (int i = 0; i < peakListUp.size(); i++) {
             float value = peakListUp.get(i);
 
             if (value != 0) {
-                maxFloat = Math.max(maxFloat, value);
+                if (value > maxFloat) {
+                    maxFloat = value; // 更新最大值
+                    maxIndex = i; // 記錄目前最大值的索引
+                }
                 insideR = true;
             } else if (insideR) {
-                R_dot_up.add(maxFloat);
-                R_index_up.add(i - 1);
+                if (maxIndex != -1) {
+                    R_dot_up.add(maxFloat);
+                    R_index_up.add(maxIndex); // 新增記錄的最大值索引
+                }
+                // 重置變量，準備偵測下一個R波段
                 maxFloat = 0;
+                maxIndex = -1;
                 insideR = false;
             }
         }
+
+        findQWavePositions(ecg_signal_origin, R_index_up);
 
         // 計算RR間距
         for (int i = 0; i < R_index_up.size() - 1; i++) {
             RRIUp.add((R_index_up.get(i + 1)) - R_index_up.get(i));
         }
+    }
+
+    public List<Integer> findQWavePositions(Float[] ecg_signal_origin, List<Integer> R_index_up) {
+        List<Integer> qWaveIndexes = new ArrayList<>();
+
+        // 對於每個R波索引
+        for (Integer rIndex : R_index_up) {
+            int searchStartIndex = Math.max(rIndex - 50, 0); // 假設Q波位於R波前最多50個資料點
+            float minValue = Float.MAX_VALUE;
+            int qIndex = -1;
+
+            // 從R波索引向前搜尋局部最小值
+            for (int i = rIndex; i >= searchStartIndex; i--) {
+                if ( ecg_signal_origin[i] < minValue) {
+                    minValue =  ecg_signal_origin[i];
+                    qIndex = i;
+                }
+            }
+
+            // 新增找到的Q波索引
+            Q_index_up.add(qIndex);
+        }
+
+        return qWaveIndexes;
     }
 
 
@@ -265,6 +338,29 @@ public class FindPeaks extends Thread {
         }
 
         return calculateMedian(distanceDifferences);
+    }
+
+    /**
+     * Bazett矯正 計算QT。
+     */
+    public float calculateQTcBazett(List<Integer> Q_index_up, List<Integer> T_index_up, List<Integer> RRIUp) {
+        List<Float> qtcIntervals = new ArrayList<>();
+
+        int minSize = Math.min(Q_index_up.size(), T_index_up.size());
+        for (int i = 0; i < minSize; i++) {
+            float qtInterval = T_index_up.get(i) - Q_index_up.get(i); // 直接計算QT間隔（毫秒）
+
+            if (i < RRIUp.size()) {
+                float rrInterval = RRIUp.get(i); // 轉換為秒
+                float sqrtRr = (float)Math.sqrt(rrInterval);
+
+                // 使用Bazett公式計算QTc（毫秒），並轉換為Float
+                float qtc = (qtInterval / sqrtRr) ; // 換回毫秒
+                qtcIntervals.add(qtc);
+            }
+        }
+
+        return calculateMedian(qtcIntervals);
     }
 
     /**

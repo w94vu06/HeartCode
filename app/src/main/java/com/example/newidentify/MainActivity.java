@@ -629,12 +629,14 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 findPeaks = new FindPeaks(dataList);
                 findPeaks.run();
                 //makeCsv  ArrayList<Double>
-                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
-                String date = new SimpleDateFormat("yyyyMMddhhmmss",
-                        Locale.getDefault()).format(System.currentTimeMillis());
+//                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
+//                ArrayList<Float> doubles2 = (ArrayList<Float>) findPeaks.peakListUp;
+//                String date = new SimpleDateFormat("yyyyMMddhhmmss",
+//                        Locale.getDefault()).format(System.currentTimeMillis());
 //                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
+//                csvMaker.makeCSVFloat(doubles2, "peak_" + date + ".csv");
                 //畫圖
-                chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
+                chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin,findPeaks.R_index_up, findPeaks.T_index_up, findPeaks.Q_index_up);
 
                 calMidError(findPeaks.ecg_signal_origin);
 
@@ -694,7 +696,9 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             float max_T = findPeaks.calculateMax(findPeaks.T_dot_up);
             float std_T = findPeaks.calculateSTD(findPeaks.T_dot_up);
             float voltMed = findPeaks.calVoltDiffMed(findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
-            float distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
+            float RT_distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
+            float QT_distanceMed = findPeaks.calculateQTcBazett(findPeaks.Q_index_up, findPeaks.T_index_up, findPeaks.RRIUp);
+            Log.d("qqqq", "calMidError: "+QT_distanceMed);
             //計算R的半高寬
             List<Integer> halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecg_signal_origin, findPeaks.R_index_up);
             averageHalfWidthValue = findPeaks.calculateHalfWidthsAverage(halfWidth);
@@ -702,13 +706,14 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             Log.d("hhhh", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
             String r_value = "\nRV-med:" + median_R + "/RV-max:" + max_R + "/RV-std:" + std_R;
             String t_value = "\nTV-med:" + median_T + "/TV-max:" + max_T + "/TV-std:" + std_T;
-            String r_halfWidth = "\nR-halfWidth:" + averageHalfWidthValue;
+            String r_halfWidth = "\nR-半高寬:" + averageHalfWidthValue;
             String rt_voltMed = "\nRT-電壓差:" + voltMed;
-            String rt_distanceMed = "\nRT-時間差:" + distanceMed;
-            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed);
+            String rt_distanceMed = "/RT-時間差:" + RT_distanceMed;
+            String qt_distanceMed = "\nQT-時間差:" + QT_distanceMed;
+            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed + qt_distanceMed);
             txt_result.setText(diff_value);
 
-            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue + "," + voltMed + "," + distanceMed;
+            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue + "," + voltMed + "," + RT_distanceMed;
         }
     }
 

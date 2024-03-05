@@ -50,7 +50,7 @@ public class ChartSetting {
         lineChart.invalidate();
     }
 
-    public void overlapChart(LineChart lineChart, List<Float> df1, List<Float> df2, List<Float> df3, List<Float> df4, int colorDf1,int colorDf2) {
+    public void overlapChart(LineChart lineChart, List<Float> df1, List<Float> df2, List<Float> df3, List<Float> df4, int colorDf1, int colorDf2) {
 
         //list float to entry
         ArrayList<Entry> df1_ = new ArrayList<>();
@@ -108,7 +108,7 @@ public class ChartSetting {
         return dataSet;
     }
 
-    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up) {
+    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up , List<Integer> Q_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
         for (int i = 0; i < ecg_signal_origin.length; i++) {
@@ -124,10 +124,11 @@ public class ChartSetting {
 
         LineData lineData = new LineData(dataSet);
 
+
         // 標記R點
         List<Entry> rEntries = new ArrayList<>();
         for (int index : R_index_up) {
-            Log.d("RRRR", "markRT: "+index);
+            Log.d("RRRR", "markRT: " + index);
             rEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
         }
 
@@ -151,6 +152,22 @@ public class ChartSetting {
         tDataSet.setDrawValues(false);
         tDataSet.setColor(Color.WHITE);
         lineData.addDataSet(tDataSet);
+
+        // 標記Q點
+        List<Entry> qEntries = new ArrayList<>();
+        for (int index : Q_index_up) {
+            qEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
+        }
+
+        LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
+        qDataSet.setCircleColor(Color.GREEN);
+        qDataSet.setCircleRadius(6f);
+        qDataSet.setDrawCircles(true); // 設置畫圓點
+        qDataSet.setDrawValues(false);
+        qDataSet.setColor(Color.WHITE);
+        lineData.addDataSet(qDataSet);
+
+
 
         // 將LineData對象設定給圖表並刷新
         chart.setData(lineData);

@@ -2722,6 +2722,7 @@ calculate_histogram(double *intervals, int size, int *histogram, int max_bin, do
             histogram[bin]++;
         }
     }
+
 }
 
 double shannon_entropy(int *histogram, int max_bin, int size) {

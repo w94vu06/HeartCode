@@ -9,18 +9,14 @@ import android.os.StrictMode;
 import android.util.Log;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -69,7 +65,7 @@ public class CsvMaker {
         }).start();
     }//makeCSV
 
-    public void makeCSVFloat(Float[] floats, String fileName) {
+    public void makeCSVFloat(ArrayList<Float> floats, String fileName) {
         new Thread(() -> {
             /** 檔名 */
             String date = new SimpleDateFormat("yyyyMMddhhmmss",
@@ -81,8 +77,8 @@ public class CsvMaker {
                 csvText.append(title[i] + ",");
             }
             /** 內容 */
-            for (int i = 0; i < floats.length; i++) {
-                csvText.append("\n" + floats[i]);
+            for (int i = 0; i < floats.size(); i++) {
+                csvText.append("\n" + floats.get(i));
             }
 
             ((Activity) context).runOnUiThread(() -> {
@@ -171,7 +167,7 @@ public class CsvMaker {
 
     public void writeRecordToFile(ArrayList<String> strings) {
         String TAG = "writeRecordToFile";
-
+        migrateAndDeleteOldRecordFile();
         new Thread(() -> {
             String folderName = "revlis_record";
             String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + folderName;
@@ -186,7 +182,7 @@ public class CsvMaker {
             }
 
             /** 檔名 */
-            String fileName = "revlis_record.csv";
+            String fileName = "revlis_record_zh.csv";
             String filePath = directoryPath + File.separator + fileName;
             File file = new File(filePath);
 
@@ -221,6 +217,52 @@ public class CsvMaker {
                 e.printStackTrace();
             }
         }).start();
+    }
+    private void migrateAndDeleteOldRecordFile() {
+        String TAG = "migrateAndDeleteOldRecordFile";
+        String folderName = "revlis_record";
+        String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + folderName;
+
+        // 原始檔案和新檔案的路徑
+        String oldFilePath = directoryPath + File.separator + "revlis_record.csv";
+        String newFilePath = directoryPath + File.separator + "revlis_record_zh.csv";
+
+        File oldFile = new File(oldFilePath);
+        File newFile = new File(newFilePath);
+
+        // 檢查原始檔案是否存在
+        if (oldFile.exists()) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(oldFile), "UTF-8"));
+                 FileOutputStream fos = new FileOutputStream(newFile, true);
+                 OutputStreamWriter writer = new OutputStreamWriter(fos, "UTF-8")) {
+
+                // 如果新檔案不存在或檔案大小為0，則寫入BOM和標題
+                if (!newFile.exists() || newFile.length() == 0) {
+                    writer.write('\ufeff');
+                    String[] title = {
+                            "時間", "自己當下差異度", "與註冊時差異度", "R_V中位數", "R_V最大值", "R_V標準差",
+                            "T_V中位數", "T_V最大值", "T_V標準差", "平均半高寬", "R-T電壓差", "R-T距離", "是否為本人"
+                    };
+                    writer.write(String.join(",", title) + "\n");
+                }
+
+                String line;
+                reader.readLine(); // 跳過原始檔案的標題行
+                while ((line = reader.readLine()) != null) {
+                    writer.write(line + "\n"); // 寫入新文件
+                }
+
+                // 資料遷移完成後刪除原文件
+                if (!oldFile.delete()) {
+                    Log.d(TAG, "Failed to delete old record file: " + oldFilePath);
+                }
+
+            } catch (IOException e) {
+                Log.e(TAG, "Error migrating record file", e);
+            }
+        } else {
+            Log.d(TAG, "Old record file does not exist: " + oldFilePath);
+        }
     }
 
 
