@@ -68,6 +68,7 @@ public class CheckID {
         File file = new File(dir);
 
         fileName = file.getName();
+        Log.d("loadFilePath", "loadFilePath: "+fileName);
         filePath = dir;
         path = filePath.substring(0, filePath.length() - fileName.length());
 

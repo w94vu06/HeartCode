@@ -40,11 +40,11 @@ public class FindPeaks extends Thread {
     public List<Float> R_dot_up = new ArrayList();//R點數據
     public List<Integer> R_index_up = new ArrayList();//R點索引
 
-    public List<Float> R_dot_down = new ArrayList();
-    public List<Integer> R_index_down = new ArrayList();
-
     public List<Float> T_dot_up = new ArrayList<>(); //T點數據
     public List<Integer> T_index_up = new ArrayList<>(); //T點索引
+
+    public List<Float> R_dot_down = new ArrayList();
+    public List<Integer> R_index_down = new ArrayList();
 
     public List<Integer> Q_index_up = new ArrayList<Integer>(); //Q點索引
 
@@ -197,10 +197,6 @@ public class FindPeaks extends Thread {
 
         // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
         calPeakListUp();
-        // 如果需要，也可以在此處呼叫calPeakListDown和其他相關的處理方法
-
-        // 計算Q波位置
-
     }
 
     public void calPeakListUp() {
@@ -347,21 +343,46 @@ public class FindPeaks extends Thread {
         List<Float> qtcIntervals = new ArrayList<>();
 
         int minSize = Math.min(Q_index_up.size(), T_index_up.size());
-        for (int i = 0; i < minSize; i++) {
-            float qtInterval = T_index_up.get(i) - Q_index_up.get(i); // 直接計算QT間隔（毫秒）
+        for (int i = 0; i < minSize && i < RRIUp.size(); i++) {
+            // QT間隔計算（毫秒）
+            float qtInterval = T_index_up.get(i) - Q_index_up.get(i);
 
-            if (i < RRIUp.size()) {
-                float rrInterval = RRIUp.get(i); // 轉換為秒
+            // RR間隔（毫秒轉換為秒）
+            float rrInterval = RRIUp.get(i) / 1000f; // 轉換為秒
+
+            if (rrInterval > 0) { // 避免除以零
+                // 計算QTc，直接使用毫秒，RR間隔已轉換為秒
                 float sqrtRr = (float)Math.sqrt(rrInterval);
-
-                // 使用Bazett公式計算QTc（毫秒），並轉換為Float
-                float qtc = (qtInterval / sqrtRr) ; // 換回毫秒
+                float qtc = qtInterval / sqrtRr; // QTc計算結果自然是毫秒
                 qtcIntervals.add(qtc);
             }
         }
 
         return calculateMedian(qtcIntervals);
     }
+
+
+    public float calculateRTSlope(List<Float> R_dot_up, List<Integer> R_index_up, List<Float> T_dot_up, List<Integer> T_index_up) {
+        List<Float> rtSlopes = new ArrayList<>();
+
+        int size = Math.min(R_dot_up.size(), T_dot_up.size());
+        for (int i = 0; i < size; i++) {
+            Float rSignal = R_dot_up.get(i);
+            Integer rIndex = R_index_up.get(i);
+            Float tSignal = T_dot_up.get(i);
+            Integer tIndex = T_index_up.get(i);
+
+            Float slope = null;
+            if (rIndex != null && tIndex != null && !rIndex.equals(tIndex)) {
+                slope = (tSignal - rSignal) / (tIndex - rIndex); // 修正斜率计算公式
+            }
+
+            rtSlopes.add(slope);
+        }
+
+        return calculateMedian(rtSlopes); // 假设这个方法能正确计算Float列表的中位数
+    }
+
 
     /**
      * 取中位數

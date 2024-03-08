@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     TextView txt_checkID_status, txt_checkID_result;
     TextView txt_Register_values, txt_Measure_values;
 
+
     /**
      * choose Device Dialog
      */
@@ -78,6 +79,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     /**
      * Parameter
      **/
+    private String mixedCHAFileName;
     private String fileName;
     private String filePath;
     private String path;
@@ -186,6 +188,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         super.onResume();
         initBroadcast();
         setScreenOn();
+
     }
 
     @Override
@@ -269,12 +272,13 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         btn_clean.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                tinyDB.clear();
-                editor.clear();
-                editor.apply();
-                checkID.cleanRecord();
-                ShowToast("已清除註冊檔案");
-                txt_checkID_status.setText("尚未有註冊資料");
+//                tinyDB.clear();
+//                editor.clear();
+//                editor.apply();
+//                checkID.cleanRecord();
+//                ShowToast("已清除註冊檔案");
+//                txt_checkID_status.setText("尚未有註冊資料");
+                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
         });
     }
@@ -552,7 +556,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
             runOnUiThread(() -> {
                 // 在主執行緒中處理 UI 相關的操作
-                ShowToast("LP4儲存成功");
+//                ShowToast("LP4儲存成功");
                 MediaScannerConnection.scanFile(this, new String[]{fileLocation.getAbsolutePath()}, null, (path, uri) -> {
                     getFilePath = path;
                 });
@@ -580,44 +584,76 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     private void readLP4(String filePath) {
         File file = new File(filePath);
         decpEcgFile(filePath);
-        String fileName = file.getName();
-        int y = fileName.length();
-        String j = fileName.substring(0, y - 4);
-        fileName = j + ".CHA"; // Ensure the consistent file extension
-
+        String chaFileName = file.getName();
+        chaFileName = chaFileName.replace(".lp4", ".CHA");
         // Debugging: Output file paths
         Log.d("FilePaths", "LP4 Path: " + filePath);
-        Log.d("FilePaths", "CHA Path: " + fileName);
+        Log.d("FilePaths", "CHA Path: " + chaFileName);
 
-        readCHA(fileName);
+        readCHA(filePath,chaFileName);
+    }
+
+    public void readCHA(String filePath, String fileName) {
+        Log.d("qweqwe", "readCHA: ");
+        // 建立完整的檔案路徑
+        String fullFilePath = filePath + File.separator + fileName;
+        Log.d("FilePaths", "Full CHA Path: " + fullFilePath);
+
+        File chaFile = new File(fullFilePath);
+        if (chaFile.exists()) {
+            Log.d("FilePaths", "Processing CHA file: " + chaFile.getAbsolutePath());
+            try {
+                DecodeCha decodeCha = new DecodeCha(chaFile.getAbsolutePath());
+                decodeCha.run();
+                decodeCha.join();
+//                ShowToast("匯入CHA成功");
+
+                // 假設calculateRR方法需要解碼後的CHA數據
+                calculateRR(decodeCha.finalCHAData);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Log.e("ReadCHAError", "讀取CHA檔案過程中發生錯誤：" + e.getMessage());
+            }
+        } else {
+            Log.e("CHAFileNotFound", "CHA檔案不存在：" + fullFilePath);
+//            ShowToast("CHA檔案不存在：" + fileName);
+        }
     }
 
     /**
-     * 讀取CHA
+     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行readCHA操作。
+     *
+     * @param directoryPath 要遍歷的目錄路徑。
      */
-    public void readCHA(String fileName) {
-        // Debugging: Output CHA file path
-        Log.d("FilePaths", "CHA Path in readCHA: " + fileName);
+    public void processAllCHAFilesInDirectory(String directoryPath) {
+        File directory = new File(directoryPath);
+        // 確保該路徑是目錄
+        if (directory.isDirectory()) {
+            // 取得目錄下所有檔案（和目錄）
+            File[] files = directory.listFiles();
 
-        if (!fileName.isEmpty()) {
-            File chaFile = new File(Environment.getExternalStorageDirectory(), fileName);
-            Log.d("FilePaths", "chaFile: " + chaFile);
-            if (chaFile.exists()) {
-                decodeCha = new DecodeCha(chaFile.getAbsolutePath());
-                try {
-                    decodeCha.run();
-                    decodeCha.join();
-                    ShowToast("匯入CHA成功");
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+            // 確保files不為null
+            if (files != null) {
+                for (File file : files) {
+                    Log.d("qweqwe", ": "+file);
+                    // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
+                    if (file.isFile() && file.getName().endsWith(".CHA")) {
+                        // 取得檔案的絕對路徑和檔案名
+                        String filePath = file.getParent();
+                        String fileName = file.getName();
+
+                        // 對每個CHA檔案執行readCHA操作
+                        readCHA(filePath, fileName);
+                        String s = filePath + File.separator + fileName;
+                        mixedCHAFileName = fileName;
+                        checkID.loadFilePath(s);
+                    }
                 }
-
-                calculateRR(decodeCha.finalCHAData);
             } else {
-                Log.e("CHAFileNotFound", "CHA檔案不存在：" + fileName);
+                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
             }
         } else {
-            Log.e("EmptyFileName", "文件名稱為空");
+            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
         }
     }
 
@@ -629,11 +665,11 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 findPeaks = new FindPeaks(dataList);
                 findPeaks.run();
                 //makeCsv  ArrayList<Double>
-//                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
+                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
 //                ArrayList<Float> doubles2 = (ArrayList<Float>) findPeaks.peakListUp;
-//                String date = new SimpleDateFormat("yyyyMMddhhmmss",
-//                        Locale.getDefault()).format(System.currentTimeMillis());
-//                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
+                String date = new SimpleDateFormat("yyyyMMddhhmmss",
+                        Locale.getDefault()).format(System.currentTimeMillis());
+                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
 //                csvMaker.makeCSVFloat(doubles2, "peak_" + date + ".csv");
                 //畫圖
                 chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin,findPeaks.R_index_up, findPeaks.T_index_up, findPeaks.Q_index_up);
@@ -658,7 +694,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             List<Float> df4 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
             //取註冊數據
             if (tinyDB.getListFloat("df1").size() < 10) {
-                tinyDB.putString("chooserFileName", getfileName);
+//                tinyDB.putString("chooserFileName", getfileName);
                 tinyDB.putListFloat("df1", df1);
                 tinyDB.putListFloat("df2", df2);
                 tinyDB.putListFloat("df3", df3);
@@ -698,8 +734,10 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             float voltMed = findPeaks.calVoltDiffMed(findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
             float RT_distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
             float QT_distanceMed = findPeaks.calculateQTcBazett(findPeaks.Q_index_up, findPeaks.T_index_up, findPeaks.RRIUp);
+            float RT_slope = findPeaks.calculateRTSlope(findPeaks.R_dot_up,findPeaks.R_index_up,findPeaks.T_dot_up,findPeaks.T_index_up);
             Log.d("qqqq", "calMidError: "+QT_distanceMed);
             //計算R的半高寬
+
             List<Integer> halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecg_signal_origin, findPeaks.R_index_up);
             averageHalfWidthValue = findPeaks.calculateHalfWidthsAverage(halfWidth);
             //輸出
@@ -710,9 +748,10 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
             String rt_voltMed = "\nRT-電壓差:" + voltMed;
             String rt_distanceMed = "/RT-時間差:" + RT_distanceMed;
             String qt_distanceMed = "\nQT-時間差:" + QT_distanceMed;
-            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed + qt_distanceMed);
+            String RT_slopeMed = "/RT-斜率:" + RT_slope;
+            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed + qt_distanceMed + RT_slopeMed);
             txt_result.setText(diff_value);
-
+            Log.d("checkValue", "calMidError: "+diff_value);
             diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue + "," + voltMed + "," + RT_distanceMed;
         }
     }
@@ -785,7 +824,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 String dateTime = new SimpleDateFormat("yyyyMMddHHmmss",
                         Locale.getDefault()).format(System.currentTimeMillis());
 
-                recordOutput(dateTime + "," + diff_value_toExcel + "," + isYouString);
+                recordOutput(mixedCHAFileName + "," + diff_value_toExcel + "," + isYouString);
             }
         });
     }
