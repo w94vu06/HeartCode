@@ -425,7 +425,7 @@ public class FindPeaks extends Thread {
     /**
      * 取半高寬
      */
-    public List<Integer> calculateHalfWidths(Float[] ecg_signal, List<Integer> r_indexes) {
+    public int calculateHalfWidths(Float[] ecg_signal, List<Integer> r_indexes) {
         List<Integer> halfWidths = new ArrayList<>();
 
         for (Integer r_index : r_indexes) {
@@ -447,16 +447,28 @@ public class FindPeaks extends Thread {
             halfWidths.add(halfWidth);
         }
 
-        return halfWidths;
+        return calculateAverage(halfWidths);
     }
 
-    public int calculateHalfWidthsAverage(List<Integer> halfWidths) {
+    public int calculateAverage(List<Integer> halfWidths) {
         int sum = 0;
         for (int halfWidth : halfWidths) {
             sum += halfWidth;
         }
         return sum / halfWidths.size();
     }
+
+    public float calculateAverageFloat(ArrayList<Float> list) {
+        if (list == null || list.isEmpty()) {
+            return 0;
+        }
+        float sum = 0;
+        for (Float f : list) {
+            sum += f;
+        }
+        return sum / list.size();
+    }
+
 
     /**
      * 巴特沃斯濾波器

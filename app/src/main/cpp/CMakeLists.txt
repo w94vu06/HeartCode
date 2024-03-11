@@ -36,6 +36,7 @@ add_library("lp4tocha" SHARED
         lz4hc.c
         xxhash.c)
 
+
 #add_library(lomb SHARED
 #        lomb.c)
 

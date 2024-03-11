@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Get100Identify"
+rootProject.name = "RevlisECG"
 include ':app'

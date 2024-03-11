@@ -3,6 +3,7 @@ package com.example.newidentify.Util;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.StrictMode;
@@ -20,11 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class CsvMaker {
+public class FileMaker {
 
     private Context context;
 
-    public CsvMaker(Context context) {
+    public FileMaker(Context context) {
         this.context = context;
     }
 
@@ -167,7 +168,6 @@ public class CsvMaker {
 
     public void writeRecordToFile(ArrayList<String> strings) {
         String TAG = "writeRecordToFile";
-        migrateAndDeleteOldRecordFile();
         new Thread(() -> {
             String folderName = "revlis_record";
             String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + folderName;
@@ -182,7 +182,7 @@ public class CsvMaker {
             }
 
             /** 檔名 */
-            String fileName = "revlis_record_zh.csv";
+            String fileName = "revlis_record_rv.csv";
             String filePath = directoryPath + File.separator + fileName;
             File file = new File(filePath);
 
@@ -193,19 +193,13 @@ public class CsvMaker {
                     //寫入UTF-8 BOM
                     writer.write('\ufeff');
                     String[] title = {
-                            "時間", // Time
+                            "檔名", // Time
                             "自己當下差異度", // own_diff
                             "與註冊時差異度", // regi_diff
-                            "R_V中位數", // RV-med
-                            "R_V最大值", // RV-max
-                            "R_V標準差", // RV-std
-                            "T_V中位數", // TV-med
-                            "T_V最大值", // TV-max
-                            "T_V標準差", // TV-std
-                            "平均半高寬", // avg-halfWidth
-                            "R-T電壓差", // RT-VDiff
-                            "R-T距離", // RT-Distance
-                            "是否為本人" // isYou
+                            "R電壓中位數", // RV-med
+                            "半高寬", // avg-halfWidth
+                            "RT電壓差", // RT-VDiff
+                            "RT距離", // RT-Distance
                     };
                     /** 寫入標題 */
                     writer.write(String.join(",", title) + "\n");
@@ -265,6 +259,16 @@ public class CsvMaker {
         }
     }
 
+    public void saveByteArrayToFile(ArrayList<Byte> byteList, File file) throws IOException {
+        byte[] byteArray = new byte[byteList.size()];
+        for (int i = 0; i < byteList.size(); i++) {
+            Byte byteValue = byteList.get(i);
+            byteArray[i] = (byteValue != null) ? byteValue : 0;
+        }
 
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(byteArray);
+        }
+    }
 
 }

@@ -1,6 +1,6 @@
 package com.example.newidentify;
 
-import static com.example.newidentify.processData.SignalProcess.Butterworth;
+import static com.example.newidentify.Util.ChartSetting.Butterworth;
 import static java.lang.Math.abs;
 import static java.lang.Math.getExponent;
 
@@ -19,7 +19,6 @@ import android.graphics.Color;
 import android.media.MediaScannerConnection;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -32,33 +31,28 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.newidentify.Util.ChartSetting;
-import com.example.newidentify.Util.CheckIDCallback;
 import com.example.newidentify.Util.CleanFile;
 import com.example.newidentify.Util.TinyDB;
 import com.example.newidentify.processData.DecodeCha;
 import com.example.newidentify.processData.FindPeaks;
-import com.example.newidentify.Util.CsvMaker;
+import com.example.newidentify.Util.FileMaker;
 import com.example.newidentify.processData.SignalProcess;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.listener.BarLineChartTouchListener;
-import com.obsez.android.lib.filechooser.ChooserDialog;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 
-public class MainActivity extends AppCompatActivity implements CheckIDCallback {
+public class MainActivity extends AppCompatActivity {
     private SharedPreferences preferences;
     private SharedPreferences.Editor editor;
     /**
@@ -69,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     TextView txt_checkID_status, txt_checkID_result;
     TextView txt_Register_values, txt_Measure_values;
 
-
     /**
      * choose Device Dialog
      */
@@ -79,16 +72,17 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     /**
      * Parameter
      **/
-    private String mixedCHAFileName;
-    private String fileName;
-    private String filePath;
-    private String path;
-    String diff_value_toExcel = "";
-    int averageHalfWidthValue = 0;
+    public String diff_value_toExcel = "";
+    public String fileName = "";
+    public String diffValueSB = "註冊筆";
 
-    private String getfileName;
-    private String getFilePath = "";
-    private static ArrayList<Float> save15secWaveData = new ArrayList<>();//取15秒的資料
+    private ArrayList<Float> averageDiff4NumSelfList = new ArrayList<>();
+    private ArrayList<Float> averageDiff4NumSbList = new ArrayList<>();
+    private ArrayList<Float> R_MedList = new ArrayList<>();
+    private ArrayList<Float> R_VoltMedList = new ArrayList<>();
+    private ArrayList<Float> RT_distanceMedList = new ArrayList<>();
+    private ArrayList<Integer> halfWidthList = new ArrayList<>();
+
 
     // Used to load the 'newidentify' library on application startup.
     static {
@@ -104,7 +98,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     static BT4 bt4;
     TinyDB tinyDB;
     public static TextView txt_BleStatus;
-    //    public static TextView Percent_Text;
+
 
     ///////////////////////
     //////畫心電圖使用///////
@@ -144,12 +138,10 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     /**
      * L2D
      */
-    private DecodeCha decodeCha;
     private SignalProcess signalProcess;
     private FindPeaks findPeaks;
-    private CleanFile cleanFile;
-    private CsvMaker csvMaker = new CsvMaker(this);
-    private CheckID checkID;
+    public CleanFile cleanFile;
+    private FileMaker fileMaker = new FileMaker(this);
 
 
     @Override
@@ -167,7 +159,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         signalProcess = new SignalProcess();
         cleanFile = new CleanFile();
         chartSetting = new ChartSetting();
-        checkID = new CheckID(this, this);
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
         chart_df2 = findViewById(R.id.chart_df2);
@@ -176,11 +167,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         initchart();//初始化圖表
         initObject();//初始化物件
         initDeviceDialog();//裝置選擇Dialog
-
-        checkID.readRecord();//讀取註冊檔案存檔
-
-        txt_checkID_status.setText(checkID.recordResult);//讀取註冊檔案
-        txt_Register_values.setText(checkID.recordValue);//讀取以儲存數據
+        checkAndDisplayRegistrationStatus();//檢查註冊狀態
     }
 
     @Override
@@ -208,6 +195,30 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         }
         unregisterReceiver(getReceiver);
         stopALL();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 取得應用程式專用的外部資料夾
+        File externalFilesDir = getExternalFilesDir(null);
+        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+            // 列出所有文件
+            File[] files = externalFilesDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    // 檢查檔案名稱是否符合特定的前綴和後綴
+                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
+                        // 刪除符合條件的文件
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
+                        }
+                    }
+                }
+            }
+        }
+//        ShowToast("已清除暫存檔案");
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -261,7 +272,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         txt_checkID_status = findViewById(R.id.txt_checkID_status);
         txt_checkID_result = findViewById(R.id.txt_checkID_result);
         txt_Register_values = findViewById(R.id.txt_Register_values);
-        txt_Measure_values = findViewById(R.id.txt_Measure_values);
 
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -272,13 +282,13 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         btn_clean.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                tinyDB.clear();
-//                editor.clear();
-//                editor.apply();
-//                checkID.cleanRecord();
-//                ShowToast("已清除註冊檔案");
-//                txt_checkID_status.setText("尚未有註冊資料");
-                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+                tinyDB.clear();
+                editor.clear();
+                editor.apply();
+                ShowToast("已清除註冊檔案");
+                txt_checkID_status.setText("尚未有註冊資料");
+                txt_checkID_result.setText("");
+//                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
         });
     }
@@ -372,9 +382,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                     if (oldValue.size() > 110) {
                         Entry chartSet1Entrie = new Entry(chartSet1Entries.size(), (float) nvalue);
                         chartSet1Entries.add(chartSet1Entrie);
-                        if (save15secWaveData.size() < 1500) {
-                            save15secWaveData.add((float) nvalue);
-                        }
                     }
                     chartSet1.setValues(chartSet1Entries);
                     lineChart.setData(new LineData(chartSet1));
@@ -523,7 +530,7 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 }
 
                 if (step[0] == 3) {
-                    if (bt4.file_data.size() > 0) {
+                    if (!bt4.file_data.isEmpty()) {
                         saveLP4(bt4.file_data);
                     } else {
                         ShowToast("檔案大小為0");
@@ -532,8 +539,6 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
                 }
 
                 if (step[0] == 4) {
-                    readLP4(getFilePath);
-                    checkID.loadFilePath(getFilePath);
                     bt4.Delete_AllRecor(this);
                     bt4.file_data.clear();
                     bt4.Buffer_Array.clear();
@@ -544,135 +549,78 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
     }
 
     private void saveLP4(ArrayList<Byte> file_data) {
+        String tempFilePath = null; // 用於保存生成的臨時文件路徑
         try {
+            // 格式化當前日期時間作為文件名一部分
             String date = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(System.currentTimeMillis());
-            String fileName = "r_" + date + "_888888.lp4";
-            getfileName = fileName;
+            String prefix = "l_" + date + "_888888_"; // 檔案前綴
+            String suffix = ".lp4"; // 檔案後綴
 
-            // 直接在外部存儲目錄中創建文件
-            File fileLocation = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+            // 在應用專用的外部文件夾中建立臨時文件
+            File tempFile = File.createTempFile(prefix, suffix, getExternalFilesDir(null));
+            tempFilePath = tempFile.getAbsolutePath(); // 獲取臨時文件的完整路徑
 
-            saveByteArrayToFile(file_data, fileLocation);
+            // 將byte列表數據寫入臨時文件
+            fileMaker.saveByteArrayToFile(file_data, tempFile);
 
             runOnUiThread(() -> {
-                // 在主執行緒中處理 UI 相關的操作
-//                ShowToast("LP4儲存成功");
-                MediaScannerConnection.scanFile(this, new String[]{fileLocation.getAbsolutePath()}, null, (path, uri) -> {
-                    getFilePath = path;
-                });
+                // 更新UI，例如顯示保存成功的提示
+                ShowToast("LP4儲存成功");
+                MediaScannerConnection.scanFile(this, new String[]{tempFile.getAbsolutePath()}, null, null);
             });
         } catch (IOException e) {
             e.printStackTrace();
         }
+        readLP4(tempFilePath);
     }
 
-    /**
-     * 儲存檔案
-     */
-    private void saveByteArrayToFile(ArrayList<Byte> byteList, File file) throws IOException {
-        byte[] byteArray = new byte[byteList.size()];
-        for (int i = 0; i < byteList.size(); i++) {
-            Byte byteValue = byteList.get(i);
-            byteArray[i] = (byteValue != null) ? byteValue : 0;
+    private void readLP4(String tempFilePath) {
+        File file = new File(tempFilePath);
+        if (!file.exists()) {
+            Log.e("LP4FileNotFound", "LP4檔案不存在：" + tempFilePath);
+            return;
         }
 
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            fos.write(byteArray);
-        }
+        // decpEcgFil將LP4檔案解碼為CHA格式的方法
+        decpEcgFile(tempFilePath);
+
+        // 根據LP4檔案路徑建立對應的CHA檔案名稱
+        String chaFileName = file.getName().replace(".lp4", ".CHA");
+        String chaFilePath = new File(file.getParent(), chaFileName).getAbsolutePath();
+
+        Log.d("FilePaths", "LP4 Path: " + tempFilePath);
+        Log.d("FilePaths", "CHA Path: " + chaFilePath);
+
+        // 繼續處理CHA檔案，例如讀取和分析
+        readCHA(chaFilePath);
     }
 
-    private void readLP4(String filePath) {
-        File file = new File(filePath);
-        decpEcgFile(filePath);
-        String chaFileName = file.getName();
-        chaFileName = chaFileName.replace(".lp4", ".CHA");
-        // Debugging: Output file paths
-        Log.d("FilePaths", "LP4 Path: " + filePath);
-        Log.d("FilePaths", "CHA Path: " + chaFileName);
-
-        readCHA(filePath,chaFileName);
-    }
-
-    public void readCHA(String filePath, String fileName) {
-        Log.d("qweqwe", "readCHA: ");
-        // 建立完整的檔案路徑
-        String fullFilePath = filePath + File.separator + fileName;
-        Log.d("FilePaths", "Full CHA Path: " + fullFilePath);
-
-        File chaFile = new File(fullFilePath);
-        if (chaFile.exists()) {
-            Log.d("FilePaths", "Processing CHA file: " + chaFile.getAbsolutePath());
-            try {
-                DecodeCha decodeCha = new DecodeCha(chaFile.getAbsolutePath());
-                decodeCha.run();
-                decodeCha.join();
-//                ShowToast("匯入CHA成功");
-
-                // 假設calculateRR方法需要解碼後的CHA數據
-                calculateRR(decodeCha.finalCHAData);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                Log.e("ReadCHAError", "讀取CHA檔案過程中發生錯誤：" + e.getMessage());
-            }
-        } else {
-            Log.e("CHAFileNotFound", "CHA檔案不存在：" + fullFilePath);
-//            ShowToast("CHA檔案不存在：" + fileName);
+    public void readCHA(String chaFilePath) {
+        File chaFile = new File(chaFilePath);
+        if (!chaFile.exists()) {
+            Log.e("CHAFileNotFound", "CHA檔案不存在：" + chaFilePath);
+            return;
         }
-    }
+        Log.d("FilePaths", "Processing CHA file: " + chaFile.getAbsolutePath());
+        fileName = chaFile.getName();//取得檔案名稱
 
-    /**
-     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行readCHA操作。
-     *
-     * @param directoryPath 要遍歷的目錄路徑。
-     */
-    public void processAllCHAFilesInDirectory(String directoryPath) {
-        File directory = new File(directoryPath);
-        // 確保該路徑是目錄
-        if (directory.isDirectory()) {
-            // 取得目錄下所有檔案（和目錄）
-            File[] files = directory.listFiles();
+        DecodeCha decodeCha = new DecodeCha(chaFilePath);
+        decodeCha.run();
 
-            // 確保files不為null
-            if (files != null) {
-                for (File file : files) {
-                    Log.d("qweqwe", ": "+file);
-                    // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
-                    if (file.isFile() && file.getName().endsWith(".CHA")) {
-                        // 取得檔案的絕對路徑和檔案名
-                        String filePath = file.getParent();
-                        String fileName = file.getName();
-
-                        // 對每個CHA檔案執行readCHA操作
-                        readCHA(filePath, fileName);
-                        String s = filePath + File.separator + fileName;
-                        mixedCHAFileName = fileName;
-                        checkID.loadFilePath(s);
-                    }
-                }
-            } else {
-                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
-            }
-        } else {
-            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
-        }
+        // calculateRR方法需要解碼後的CHA數據
+        calculateRR(decodeCha.finalCHAData);
     }
 
     private void calculateRR(List<Float> dataList) {
-        if (dataList == null || dataList.size() == 0) {
+        if (dataList == null || dataList.isEmpty()) {
             Log.e("EmptyDataList", "dataList為空");
         } else {
             try {
                 findPeaks = new FindPeaks(dataList);
                 findPeaks.run();
-                //makeCsv  ArrayList<Double>
-                ArrayList<Double> doubles = floatArrayToDoubleList(findPeaks.ecg_signal_origin);
-//                ArrayList<Float> doubles2 = (ArrayList<Float>) findPeaks.peakListUp;
-                String date = new SimpleDateFormat("yyyyMMddhhmmss",
-                        Locale.getDefault()).format(System.currentTimeMillis());
-                csvMaker.makeCSVDouble(doubles, "original_" + date + ".csv");
-//                csvMaker.makeCSVFloat(doubles2, "peak_" + date + ".csv");
+
                 //畫圖
-                chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin,findPeaks.R_index_up, findPeaks.T_index_up, findPeaks.Q_index_up);
+                chartSetting.markRT(chart_df3, findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up, findPeaks.Q_index_up);
 
                 calMidError(findPeaks.ecg_signal_origin);
 
@@ -685,85 +633,149 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
 
     public void calMidError(Float[] floats) {
         List<Integer> R_index = findPeaks.R_index_up;
-        if (R_index.size() > 10) {
+        if (R_index.size() > 12) {
 
             //取得已經過濾過的RR100(4張圖)
             List<Float> df1 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(10), R_index.get(12));
             List<Float> df2 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(3), R_index.get(5));
             List<Float> df3 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(6), R_index.get(8));
             List<Float> df4 = signalProcess.getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
-            //取註冊數據
-            if (tinyDB.getListFloat("df1").size() < 10) {
-//                tinyDB.putString("chooserFileName", getfileName);
-                tinyDB.putListFloat("df1", df1);
-                tinyDB.putListFloat("df2", df2);
-                tinyDB.putListFloat("df3", df3);
-                tinyDB.putListFloat("df4", df4);
-            } else {
-                Log.d("TinyDB", "已經有第一段數據了");
-            }
-            //輸出自己與別人的差異
-            List<Float> df1_ = tinyDB.getListFloat("df1");
 
             //計算自己的差異
             float diff12 = signalProcess.calMidDiff(df1, df2);
             float diff13 = signalProcess.calMidDiff(df1, df3);
             float diff14 = signalProcess.calMidDiff(df1, df4);
             float diff23 = signalProcess.calMidDiff(df2, df3);
-            //計算別人的差異(只用df1)
-            float diff11_ = signalProcess.calMidDiff(df1_, df1);
-            float diff12_ = signalProcess.calMidDiff(df1_, df2);
-            float diff13_ = signalProcess.calMidDiff(df1_, df3);
-            float diff14_ = signalProcess.calMidDiff(df1_, df4);
+
+            //計算
+            float averageDiff4Num_self = (diff12 + diff13 + diff14 + diff23) / 4;
+            float R_Med = findPeaks.calculateMedian(findPeaks.R_dot_up);
+            float R_VoltMed = findPeaks.calVoltDiffMed(findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
+            float RT_distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
+            int halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecg_signal_origin, findPeaks.R_index_up);
+
+            // 儲存測量結果並檢查註冊狀態
+            ArrayList<Float> stringList = tinyDB.getListFloat("averageDiff4NumSelfList");
+            if (stringList.size() < 3) {
+                if (Math.abs(averageDiff4Num_self) < 1 && halfWidth < 100) {
+                    averageDiff4NumSelfList.add(averageDiff4Num_self);
+                    R_MedList.add(R_Med);
+                    R_VoltMedList.add(R_VoltMed);
+                    RT_distanceMedList.add(RT_distanceMed);
+                    halfWidthList.add(halfWidth);
+                    saveMeasurementResultsToTinyDB();// 將測量結果保存到TinyDB
+                } else {
+                    txt_checkID_result.setText("測量失敗，請重新測量");
+                }
+                txt_checkID_status.setText("註冊還需: (" + (stringList.size() + 1) + "/3)");
+            } else {
+                txt_checkID_status.setText("註冊完成");
+            }
+
+            String r_value = "\nR電壓中位數:" + R_Med;
+            String r_halfWidth = "\n半高寬:" + halfWidth;
+            String rt_voltMed = "/RT電壓差:" + R_VoltMed;
+            String rt_distanceMed = "/RT距離:" + RT_distanceMed;
+
+            if (stringList.size() >= 3) {
+                float selfDiff = calDiffArray(averageDiff4Num_self, R_Med, halfWidth, R_VoltMed, RT_distanceMed);
+                String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, selfDiff + r_value + r_halfWidth + rt_voltMed + rt_distanceMed);
+                txt_result.setText(diff_value);
+                diff_value_toExcel = fileName + "," + averageDiff4Num_self + "," + selfDiff + "," + R_Med + "," + halfWidth + "," + R_VoltMed + "," + RT_distanceMed;
+                recordOutputToCSV(diff_value_toExcel);
+            } else {
+                String diff_value = String.format("自己當下差異度: %s", averageDiff4Num_self + r_value + r_halfWidth + rt_voltMed + rt_distanceMed);
+                txt_result.setText(diff_value);
+                diff_value_toExcel = fileName + "," + averageDiff4Num_self + "," + diffValueSB + "," + R_Med + "," + halfWidth + "," + R_VoltMed + "," + RT_distanceMed;
+                recordOutputToCSV(diff_value_toExcel);
+            }
 
             //畫圖
             chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
-            chartSetting.overlapChart(chart_df2, df1_, df2, df3, df4, Color.BLACK, Color.parseColor("#F596AA"));
-
-            //計算平均差異
-            float averageDiff4Num_self = (diff12 + diff13 + diff14 + diff23) / 4;
-            float averageDiff4Num_sb = (diff12_ + diff13_ + diff14_ + diff11_) / 4;
-
-            //計算R T的中位數、最大值、標準差
-            float median_R = findPeaks.calculateMedian(findPeaks.R_dot_up);
-            float max_R = findPeaks.calculateMax(findPeaks.R_dot_up);
-            float std_R = findPeaks.calculateSTD(findPeaks.R_dot_up);
-            float median_T = findPeaks.calculateMedian(findPeaks.T_dot_up);
-            float max_T = findPeaks.calculateMax(findPeaks.T_dot_up);
-            float std_T = findPeaks.calculateSTD(findPeaks.T_dot_up);
-            float voltMed = findPeaks.calVoltDiffMed(findPeaks.ecg_signal_origin, findPeaks.R_index_up, findPeaks.T_index_up);
-            float RT_distanceMed = findPeaks.calDistanceDiffMed(findPeaks.R_index_up, findPeaks.T_index_up);
-            float QT_distanceMed = findPeaks.calculateQTcBazett(findPeaks.Q_index_up, findPeaks.T_index_up, findPeaks.RRIUp);
-            float RT_slope = findPeaks.calculateRTSlope(findPeaks.R_dot_up,findPeaks.R_index_up,findPeaks.T_dot_up,findPeaks.T_index_up);
-            Log.d("qqqq", "calMidError: "+QT_distanceMed);
-            //計算R的半高寬
-
-            List<Integer> halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecg_signal_origin, findPeaks.R_index_up);
-            averageHalfWidthValue = findPeaks.calculateHalfWidthsAverage(halfWidth);
-            //輸出
-            Log.d("hhhh", "diff12: " + diff12 + "\ndiff13:" + diff13 + "\ndiff14:" + diff14 + "\ndiff23:" + diff23 + "\naverage:" + averageDiff4Num_self);
-            String r_value = "\nRV-med:" + median_R + "/RV-max:" + max_R + "/RV-std:" + std_R;
-            String t_value = "\nTV-med:" + median_T + "/TV-max:" + max_T + "/TV-std:" + std_T;
-            String r_halfWidth = "\nR-半高寬:" + averageHalfWidthValue;
-            String rt_voltMed = "\nRT-電壓差:" + voltMed;
-            String rt_distanceMed = "/RT-時間差:" + RT_distanceMed;
-            String qt_distanceMed = "\nQT-時間差:" + QT_distanceMed;
-            String RT_slopeMed = "/RT-斜率:" + RT_slope;
-            String diff_value = String.format("自己當下差異度: %s/與註冊時差異度: %s", averageDiff4Num_self, averageDiff4Num_sb + r_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed + qt_distanceMed + RT_slopeMed);
-            txt_result.setText(diff_value);
-            Log.d("checkValue", "calMidError: "+diff_value);
-            diff_value_toExcel = averageDiff4Num_self + "," + averageDiff4Num_sb + "," + median_R + "," + max_R + "," + std_R + "," + median_T + "," + max_T + "," + std_T + "," + averageHalfWidthValue + "," + voltMed + "," + RT_distanceMed;
+//            chartSetting.overlapChart(chart_df2, diffValueSB, df2, df3, df4, Color.BLACK, Color.parseColor("#F596AA"));
         }
     }
 
-    public ArrayList<Double> floatArrayToDoubleList(Float[] arrayList) {
-        // 將 ArrayList<Byte> 轉換為 byte 數組
-        ArrayList<Double> doubleArray = new ArrayList<>();
-        for (int i = 0; i < arrayList.length; i++) {
-            doubleArray.add(Double.valueOf(arrayList[i]));
-        }
-        return doubleArray;
+    private float calDiffArray(float self, float R_Med, int halfWidth, float R_VoltMed, float RT_distanceMed) {
+        ArrayList<Float> averageDiff4NumSelfList = tinyDB.getListFloat("averageDiff4NumSelfList");
+        ArrayList<Float> R_MedList = tinyDB.getListFloat("R_MedList");
+        ArrayList<Integer> halfWidthList = tinyDB.getListInt("halfWidthList");
+        ArrayList<Float> R_VoltMedList = tinyDB.getListFloat("R_VoltMedList");
+        ArrayList<Float> RT_distanceMedList = tinyDB.getListFloat("RT_distanceMedList");
+
+        float averageSelf = findPeaks.calculateAverageFloat(averageDiff4NumSelfList);
+        float averageRMed = findPeaks.calculateAverageFloat(R_MedList);
+        int averageHalfWidth = findPeaks.calculateAverage(halfWidthList);
+        float averageRVoltMed = findPeaks.calculateAverageFloat(R_VoltMedList);
+        float averageRTDistanceMed = findPeaks.calculateAverageFloat(RT_distanceMedList);
+
+        float selfDiff = (self - averageSelf) / averageSelf;
+        float RMedDiff = (R_Med - averageRMed) / averageRMed;
+        int halfWidthDiff = (halfWidth - averageHalfWidth) / averageHalfWidth;
+        float RVoltMedDiff = (R_VoltMed - averageRVoltMed) / averageRVoltMed;
+        float RTDistanceMedDiff = (RT_distanceMed - averageRTDistanceMed) / averageRTDistanceMed;
+
+        saveDiffToTinyDB(selfDiff, RMedDiff, halfWidthDiff, RVoltMedDiff, RTDistanceMedDiff);// 將差異度保存到TinyDB
+
+        String resultText = String.format("自己當下差異度: %.3f\nR電壓中位數差異: %.3f\n半高寬差異: %.3f\nR到T電壓差異: %.3f\nR到T距離差異: %.3f",
+                selfDiff, RMedDiff, halfWidthDiff, RVoltMedDiff, RTDistanceMedDiff);
+
+        runOnUiThread(() -> txt_Register_values.setText(resultText));
+        return selfDiff;
     }
+
+
+    public void recordOutputToCSV(String finalResult) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ArrayList<String> recordList = new ArrayList<>();
+
+                // 使用 split 方法根據逗號分隔 finalResult 字串
+                String[] results = finalResult.split(",");
+
+                // 將分割後的結果添加到 recordList 中
+                for (String result : results) {
+                    recordList.add(result.trim()); // trim() 移除前後的空白字符
+                }
+
+                fileMaker.writeRecordToFile(recordList);
+            }
+        }).start();
+    }
+
+    public void saveMeasurementResultsToTinyDB() {
+        tinyDB.putListFloat("averageDiff4NumSelfList", averageDiff4NumSelfList);
+        tinyDB.putListFloat("averageDiff4NumSbList", (averageDiff4NumSbList));
+        tinyDB.putListFloat("R_MedList", (R_MedList));
+        tinyDB.putListFloat("R_VoltMedList", (R_VoltMedList));
+        tinyDB.putListFloat("RT_distanceMedList", (RT_distanceMedList));
+        tinyDB.putListInt("halfWidthList", (halfWidthList));
+    }
+
+    private void saveDiffToTinyDB(float selfDiff, float RMedDiff, int halfWidthDiff, float RVoltMedDiff, float RTDistanceMedDiff) {
+        tinyDB.putFloat("selfDiff", (selfDiff));
+        tinyDB.putFloat("RMedDiff", (RMedDiff));
+        tinyDB.putInt("halfWidthDiff", (halfWidthDiff));
+        tinyDB.putFloat("RVoltMedDiff", (RVoltMedDiff));
+        tinyDB.putFloat("RTDistanceMedDiff", (RTDistanceMedDiff));
+    }
+
+
+    public void checkAndDisplayRegistrationStatus() {
+        ArrayList<Float> averageDiff4NumSelfList = tinyDB.getListFloat("averageDiff4NumSelfList");
+        if (averageDiff4NumSelfList.size() >= 3) {
+            runOnUiThread(() -> {
+                txt_checkID_status.setText("註冊所需(" + averageDiff4NumSelfList.size() + "/3)");
+            });
+        } else {
+            runOnUiThread(() -> {
+                txt_checkID_status.setText("註冊所需檔案(" + averageDiff4NumSelfList.size() + "/3)");
+            });
+        }
+
+    }
+
 
     public void initchart() {
         chartSetting.initchart(lineChart);
@@ -789,97 +801,39 @@ public class MainActivity extends AppCompatActivity implements CheckIDCallback {
         lineChart.invalidate();
     }
 
+    /**
+     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行readCHA操作。
+     *
+     * @param directoryPath 要遍歷的目錄路徑。
+     */
+    public void processAllCHAFilesInDirectory(String directoryPath) {
+        File directory = new File(directoryPath);
+        // 確保該路徑是目錄
+        if (directory.isDirectory()) {
+            // 取得目錄下所有檔案（和目錄）
+            File[] files = directory.listFiles();
 
-    @Override
-    public void onStatusUpdate(String result) {
-        runOnUiThread(() -> {
-            Log.d("IDCallback", "onStatusUpdate: " + result);
-            txt_checkID_status.setText(result);
-        });
-    }
+            // 確保files不為null
+            if (files != null) {
+                for (File file : files) {
+                    Log.d("qweqwe", ": " + file);
+                    // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
+                    if (file.isFile() && file.getName().endsWith(".CHA")) {
+                        // 取得檔案的絕對路徑和檔案名
+                        String filePath = file.getParent();
+                        String fileName = file.getName();
 
-    @Override
-    public void onCheckIDError(String result) {
-        runOnUiThread(() -> {
-            Log.d("IDCallback", "onCheckIDError: " + result);
-            txt_checkID_status.setText(result);
-            if (result.equals("量測失敗")) {
-                txt_Measure_values.setText("計算錯誤");
-            }
-        });
-    }
-
-    @Override
-    public void onResult(String result) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {//量測結果
-                String isYouString = "";
-                if (result.isEmpty() || result.equals("null")) {
-                    isYouString = "量測失敗";
-                } else {
-                    isYouString = result;
+                        // 對每個CHA檔案執行readCHA操作
+                        readCHA(filePath);
+                        String s = filePath + File.separator + fileName;
+                    }
                 }
-                txt_checkID_result.setText(isYouString);
-                String dateTime = new SimpleDateFormat("yyyyMMddHHmmss",
-                        Locale.getDefault()).format(System.currentTimeMillis());
-
-                recordOutput(mixedCHAFileName + "," + diff_value_toExcel + "," + isYouString);
+            } else {
+                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
             }
-        });
-    }
-
-    public void recordOutput(String finalResult) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ArrayList<String> recordList = new ArrayList<>();
-
-                // 使用 split 方法根據逗號分隔 finalResult 字串
-                String[] results = finalResult.split(",");
-
-                // 將分割後的結果添加到 recordList 中
-                for (String result : results) {
-                    recordList.add(result.trim()); // trim() 移除前後的空白字符
-                }
-
-                // 接下來可以將 recordList 中的數據寫入到文件中
-                csvMaker.writeRecordToFile(recordList); // 假設有一個寫入文件的方法
-            }
-        }).start();
-    }
-
-    @Override
-    public void onDetectData(String result, String result2) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (result.isEmpty() || result.equals("null")) {
-                    txt_Register_values.setText("已註冊數據: 無");
-                } else {
-                    txt_Register_values.setText("已註冊數據: \n" + result);
-                }
-                if (result2.isEmpty() || result2.equals("null")) {
-                    txt_Measure_values.setText("量測資料: 無");
-                } else {
-                    txt_Measure_values.setText("目前量測: \n" + result2);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onDetectDataError(String result) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (result.isEmpty() || result.equals("null")) {
-                    txt_Measure_values.setText("目前量測: 無");
-                } else {
-                    txt_Measure_values.setText("目前量測: \n" + result);
-                }
-            }
-        });
+        } else {
+            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
+        }
     }
 
     public static native int anaEcgFile(String name, String path);

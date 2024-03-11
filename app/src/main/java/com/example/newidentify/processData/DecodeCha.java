@@ -2,8 +2,6 @@ package com.example.newidentify.processData;
 
 import android.util.Log;
 
-import com.example.newidentify.Util.LcndUtil;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,6 +13,7 @@ public class DecodeCha extends Thread {
     CellData cell;
     public ArrayList<Float> finalCHAData = new ArrayList();
     private static final String TAG = "DecodeCha";
+
     //處理CHA
     public DecodeCha(String filePath) {
         this.filePath = filePath;
@@ -24,15 +23,15 @@ public class DecodeCha extends Thread {
     public void run() {
         File chaFile = new File(filePath);
         if (!chaFile.exists()) {
-            Log.e(TAG, "run: " + "CHA file not exist" );
+            Log.e(TAG, "run: " + "CHA file not exist");
             return;
         }
         super.run();
         try {
             int x = 64;
             char[] a = new char[32 * 1024 * 1024];
-            int cha_size = LcndUtil.len(filePath, a);
-            byte[] content = LcndUtil.readFromByteFile(filePath);
+            int cha_size = Lcnd.len(filePath, a);
+            byte[] content = Lcnd.readFromByteFile(filePath);
             /** Lead1 */
             ArrayList CHA_LI_dataNum = new ArrayList();
             ArrayList CHA_LI_data16 = new ArrayList();
@@ -92,14 +91,14 @@ public class DecodeCha extends Thread {
                 floatData.add(Float.valueOf(sampleValue.get(i)));
                 floatData.set(i, (float) (((k - 2048) * 5) * 0.001));
             }
-            if (floatData.size() > 0) {
+            if (!floatData.isEmpty()) {
                 finalCHAData.addAll(floatData);
-            }else {
-                Log.e(TAG, "run: " + "CHA floatData size is 0" );
+            } else {
+                Log.e(TAG, "finalCHAData: size is 0");
             }
 
-        } catch (Exception ignored) {
-
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
