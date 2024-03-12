@@ -2,14 +2,43 @@ package com.example.newidentify.processData;
 
 import android.util.Log;
 
+import com.example.newidentify.MainActivity;
+import com.example.newidentify.Util.TinyDB;
 import com.github.mikephil.charting.data.Entry;
 
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SignalProcess extends Thread{
+public class SignalProcess extends Thread {
     private static final String TAG = "SignalProcess";
+    TinyDB tinyDB = new TinyDB(MainActivity.global_activity);
+
+    public ArrayList<Float> averageDiff4NumSelfList = new ArrayList<>();
+    public ArrayList<Float> averageDiff4NumSbList = new ArrayList<>();
+    public ArrayList<Float> R_MedList = new ArrayList<>();
+    public ArrayList<Float> R_VoltMedList = new ArrayList<>();
+    public ArrayList<Float> RT_distanceMedList = new ArrayList<>();
+    public ArrayList<Integer> halfWidthList = new ArrayList<>();
+
+    public String loadRecord() {
+        averageDiff4NumSelfList = tinyDB.getListFloat("averageDiff4NumSelfList");
+        averageDiff4NumSbList = tinyDB.getListFloat("averageDiff4NumSbList");
+        R_MedList = tinyDB.getListFloat("R_MedList");
+        R_VoltMedList = tinyDB.getListFloat("R_VoltMedList");
+        RT_distanceMedList = tinyDB.getListFloat("RT_distanceMedList");
+        halfWidthList = tinyDB.getListInt("halfWidthList");
+
+        String registerFileCount = String.valueOf(averageDiff4NumSelfList.size());
+        String registerEvent;
+        if (averageDiff4NumSelfList.size() == 0) {
+            registerEvent = "尚未有註冊資料";
+        } else {
+            registerEvent = "已有" + registerFileCount + "筆註冊資料";
+        }
+        return registerEvent;
+    }
 
     public List<Float> getReduceRR100(List<Float> dataList, int startIndex, int endIndex) {
         List<Entry> dataBetweenTwoR = new ArrayList<>();
@@ -115,6 +144,5 @@ public class SignalProcess extends Thread{
             return values.get(middleIndex);
         }
     }
-
 
 }

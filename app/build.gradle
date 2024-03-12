@@ -7,7 +7,7 @@ android {
     compileSdk 33
 
     defaultConfig {
-        applicationId 'com.example.revlisecg'
+        applicationId 'com.example.newidentify'
         minSdk 23
         targetSdk 33
         versionCode 1

@@ -76,6 +76,12 @@ JNICALL Java_com_example_newidentify_MainActivity_decpEcgFile
         if (nBytesReceived != 2)
             break;
 
+        // 檢查讀取的數據大小是否超過 MESSAGE_MAX_BYTES
+        if (frameCompSize > MESSAGE_MAX_BYTES) {
+            printf("Error: Data size exceeds maximum limit.\n");
+            break;
+        }
+
         nBytesReceived = fread(compBuff, 1, frameCompSize, pReadFile);
         if (nBytesReceived != frameCompSize)
             break;
@@ -112,7 +118,5 @@ JNICALL Java_com_example_newidentify_MainActivity_decpEcgFile
 
     return 0;
 }
-
-
 
 

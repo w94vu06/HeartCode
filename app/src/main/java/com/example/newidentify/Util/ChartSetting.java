@@ -108,7 +108,7 @@ public class ChartSetting {
         return dataSet;
     }
 
-    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up , List<Integer> Q_index_up) {
+    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up, List<Integer> Q_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
         for (int i = 0; i < ecg_signal_origin.length; i++) {
@@ -168,8 +168,7 @@ public class ChartSetting {
         lineData.addDataSet(qDataSet);
 
 
-
-        // 將LineData對象設定給圖表並刷新
+        //將LineData對象設定給圖表並刷新
         chart.setData(lineData);
         // 去掉左側Y軸標籤
         chart.getAxisLeft().setDrawLabels(false);

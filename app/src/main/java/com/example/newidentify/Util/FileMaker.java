@@ -106,6 +106,47 @@ public class FileMaker {
         }).start();
     }//makeCSV
 
+    public void makeCSVFloatArray( Float[] floats, String fileName) {
+        new Thread(() -> {
+            /** 檔名 */
+            String date = new SimpleDateFormat("yyyyMMddhhmmss",
+                    Locale.getDefault()).format(System.currentTimeMillis());
+
+            String[] title = {"Lead2"};
+            StringBuffer csvText = new StringBuffer();
+            for (int i = 0; i < title.length; i++) {
+                csvText.append(title[i] + ",");
+            }
+            /** 內容 */
+            for (int i = 0; i < floats.length; i++) {
+                csvText.append("\n" + floats[i]);
+            }
+            String finalFileName = date + fileName;
+
+            ((Activity) context).runOnUiThread(() -> {
+                try {
+                    StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+                    StrictMode.setVmPolicy(builder.build());
+                    builder.detectFileUriExposure();
+                    FileOutputStream out = context.openFileOutput(finalFileName, Context.MODE_PRIVATE);
+                    out.write((csvText.toString().getBytes()));
+                    out.close();
+                    File fileLocation = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), finalFileName);
+                    FileOutputStream fos = new FileOutputStream(fileLocation);
+                    fos.write(csvText.toString().getBytes());
+                    Uri path = Uri.fromFile(fileLocation);
+                    Intent fileIntent = new Intent(Intent.ACTION_SEND);
+                    fileIntent.setType("text/csv");
+                    fileIntent.putExtra(Intent.EXTRA_SUBJECT, finalFileName);
+                    fileIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    fileIntent.putExtra(Intent.EXTRA_STREAM, path);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }).start();
+    }//makeCSV
+
     public void makeCSVFloatDf(List<Float> df1, List<Float> df2, List<Float> df3, List<Float> df4, String fileName) {
         new Thread(() -> {
             /** 檔名 */
@@ -212,6 +253,7 @@ public class FileMaker {
             }
         }).start();
     }
+
     private void migrateAndDeleteOldRecordFile() {
         String TAG = "migrateAndDeleteOldRecordFile";
         String folderName = "revlis_record";

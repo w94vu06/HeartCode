@@ -1,6 +1,10 @@
 package com.example.newidentify.processData;
 
+import android.content.Context;
 import android.util.Log;
+
+import com.example.newidentify.MainActivity;
+import com.example.newidentify.Util.FileMaker;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,13 +15,31 @@ import uk.me.berndporr.iirj.Butterworth;
 
 public class FindPeaks extends Thread {
 
+    private static final String TAG = "FindPeaks";
     private final List<Float> dataList;
 
-    public FindPeaks(List<Float> dataList) {
-        this.dataList = dataList;
-    }
+    // 原始ECG信號數據
+    public Float[] ecgSignal;
 
-    private static final String TAG = "FindPeaks";
+    public double BPM;  // 平均心率
+
+    public List<Float> peakList = new ArrayList(); // 峰值列表
+
+    // R波峰值數據和索引
+    public List<Float> rWavePeaks = new ArrayList<>();
+    public List<Integer> rWaveIndices = new ArrayList<>();
+
+    // T波峰值數據和索引
+    public List<Float> tWavePeaks = new ArrayList<>();
+    public List<Integer> tWaveIndices = new ArrayList<>();
+
+    // Q波索引
+    public List<Integer> qWaveIndices = new ArrayList<>();
+
+    // RR間隔列表
+    public List<Integer> rrIntervals = new ArrayList<>();
+
+    private static final int MAX_ATTEMPTS = 3;
 
     float minValue = Float.MAX_VALUE;
     float maxValue = Float.MIN_VALUE;
@@ -28,34 +50,19 @@ public class FindPeaks extends Thread {
     float minValueB = Float.MAX_VALUE;
     float maxValueB = Float.MIN_VALUE;
 
-    //回傳結果
-    Float minFloatValue;
-    public Float[] ecg_signal_origin;
-    double bpmUp;
-    double bpmDown;
-
-    public List<Float> peakListUp = new ArrayList();
-    List<Float> peakListDown = new ArrayList();
-
-    public List<Float> R_dot_up = new ArrayList();//R點數據
-    public List<Integer> R_index_up = new ArrayList();//R點索引
-
-    public List<Float> T_dot_up = new ArrayList<>(); //T點數據
-    public List<Integer> T_index_up = new ArrayList<>(); //T點索引
-
-    public List<Float> R_dot_down = new ArrayList();
-    public List<Integer> R_index_down = new ArrayList();
-
-    public List<Integer> Q_index_up = new ArrayList<Integer>(); //Q點索引
-
-    public List<Integer> RRIUp = new ArrayList<>(); //RR間距
-    List<Integer> RRIDown = new ArrayList<>();
+    public FindPeaks(List<Float> dataList) {
+        this.dataList = dataList;
+    }
 
     @Override
     public void run() {
         super.run();
         /** 宣告*/
+        processECGData();
+    }
 
+    private void processECGData() {
+        // 進行ECG數據處理
         List<Float> bandStop = new ArrayList<>(Arrays.asList(butter_bandStop_filter(dataList, 55, 65, 1000, 1)));
 
         Float[] floats = butter_bandpass_filter(bandStop, 2, 10, 1000, 1);
@@ -74,39 +81,23 @@ public class FindPeaks extends Thread {
         }
 
         if (floats.length >= 20000) {
-            ecg_signal_origin = Arrays.copyOfRange(floats, 4000, 22000);
+            ecgSignal = Arrays.copyOfRange(floats, 4000, 22000);
         } else {
             try {
-                throw new Exception("資料錯誤");
+                throw new Exception("ECG信號數據長度不足");
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
             }
         }
 
-        findPeaks(ecg_signal_origin, 1.5);
+        findPeaks(ecgSignal, 1.5, 0);
 
         findTDot();
 
         /** 算平均心率 */
-
-        int sumUp = 0;
-        int sumDown = 0;
-
-        for (int i : RRIUp) {
-            sumUp += i;
+        for (int i : rrIntervals) {
+            BPM += 60 * 1000 / i;
         }
-
-        for (int i : RRIDown) {
-            sumDown += i;
-        }
-        if (sumUp != 0) {
-            bpmUp = 60.0 / ((sumUp / RRIUp.size()) / 1000.0);
-        }
-        if (sumDown != 0) {
-            bpmDown = 60.0 / ((sumDown / RRIDown.size()) / 1000.0);
-        }
-
-        minFloatValue = minValue;
         //初始化
         minValue = Float.MAX_VALUE;
         maxValue = 0;
@@ -116,7 +107,7 @@ public class FindPeaks extends Thread {
         maxValueB = 0;
     }
 
-    private void findPeaks(Float[] ecg_signal_origin, double peakThresholdFactor) {
+    private void findPeaks(Float[] ecg_signal_origin, double peakThresholdFactor, int attempt) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
         int chunkSize = 4500;
         for (int i = 0; i < ecg_signal_origin.length; i += chunkSize) {
@@ -133,49 +124,42 @@ public class FindPeaks extends Thread {
             // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
             for (Float value : chunk) {
                 if (value > maxValue / peakThresholdFactor) {
-                    peakListUp.add(value);
-                    peakListDown.add(0F);  // 添加零值到 peakListDown
+                    peakList.add(value);
+
                 } else if (value < minValue / peakThresholdFactor) {
-                    peakListUp.add(0F);    // 添加零值到 peakListUp
-                    peakListDown.add(value);
+                    peakList.add(0F);    // 添加零值到 peakListUp
                 } else {
-                    peakListUp.add(0F);
-                    peakListDown.add(0F);
+                    peakList.add(0F);
                 }
             }
         }
 
-        Log.d(TAG, "peakListUp: " + peakListUp.size());
+        Log.d(TAG, "peakListUp: " + peakList.size());
 
-        // 遍歷 peakListUp 尋找 R 點
         adjustRPointPositions(ecg_signal_origin);
-        calPeakListDown();
 
-        if (R_index_up.size() <= 13) {
+        if (rWaveIndices.size() < 13 && attempt < MAX_ATTEMPTS) {
             // 如果找到的R點數量小於13，清空數據並往下繼續找R點
-            peakListUp.clear();
-            peakListDown.clear();
-            R_dot_up.clear();
-            R_dot_down.clear();
-            R_index_up.clear();
-            R_index_down.clear();
-            RRIUp.clear();
-            RRIDown.clear();
-            T_dot_up.clear();
-            T_index_up.clear();
-            Q_index_up.clear();
-
-            findPeaks(ecg_signal_origin, 2.5);
+            peakList.clear();
+            rWavePeaks.clear();
+            rWaveIndices.clear();
+            rrIntervals.clear();
+            tWavePeaks.clear();
+            tWaveIndices.clear();
+            qWaveIndices.clear();
+            findPeaks(ecg_signal_origin, peakThresholdFactor + 0.5, attempt + 1); // 增加閾值並記錄嘗試次數
+        } else if (attempt >= MAX_ATTEMPTS) {
+            // 達到最大嘗試次數，終止尋找峰值
+            Log.d(TAG, "達到最大嘗試次數，終止尋找峰值");
         }
-//        adjustRPointPositions(ecg_signal_origin);
-        Log.d("Rindex", "findPeaks: " + R_index_up.size());
+        Log.d("Rindex", "findPeaks: " + rWaveIndices.size());
     }
 
     public void adjustRPointPositions(Float[] ecg_signal_origin) {
         List<Integer> adjustedRIndexUp = new ArrayList<>();
         int windowSize = 100;
 
-        for (int originalIndex : R_index_up) {
+        for (int originalIndex : rWaveIndices) {
             int startIndex = Math.max(0, originalIndex - windowSize);
             int endIndex = Math.min(ecg_signal_origin.length - 1, originalIndex + windowSize);
             float maxVal = Float.NEGATIVE_INFINITY;
@@ -190,10 +174,9 @@ public class FindPeaks extends Thread {
 
             adjustedRIndexUp.add(maxIndex);
         }
-
         // 更新R_index_up為調整後的索引
-        R_index_up.clear();
-        R_index_up.addAll(adjustedRIndexUp);
+        rWaveIndices.clear();
+        rWaveIndices.addAll(adjustedRIndexUp);
 
         // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
         calPeakListUp();
@@ -204,15 +187,15 @@ public class FindPeaks extends Thread {
         boolean insideR = false;
 
         // 清空數據
-        RRIUp.clear();
-        R_dot_up.clear();
-        R_index_up.clear();
+        rrIntervals.clear();
+        rWavePeaks.clear();
+        rWaveIndices.clear();
 
         // 遍歷 peakListUp 尋找 R 點
         int maxIndex = -1; // 初始化最大值索引
 
-        for (int i = 0; i < peakListUp.size(); i++) {
-            float value = peakListUp.get(i);
+        for (int i = 0; i < peakList.size(); i++) {
+            float value = peakList.get(i);
 
             if (value != 0) {
                 if (value > maxFloat) {
@@ -222,8 +205,8 @@ public class FindPeaks extends Thread {
                 insideR = true;
             } else if (insideR) {
                 if (maxIndex != -1) {
-                    R_dot_up.add(maxFloat);
-                    R_index_up.add(maxIndex); // 新增記錄的最大值索引
+                    rWavePeaks.add(maxFloat);
+                    rWaveIndices.add(maxIndex); // 新增記錄的最大值索引
                 }
                 // 重置變量，準備偵測下一個R波段
                 maxFloat = 0;
@@ -232,11 +215,11 @@ public class FindPeaks extends Thread {
             }
         }
 
-        findQWavePositions(ecg_signal_origin, R_index_up);
+        findQWavePositions(ecgSignal, rWaveIndices);
 
         // 計算RR間距
-        for (int i = 0; i < R_index_up.size() - 1; i++) {
-            RRIUp.add((R_index_up.get(i + 1)) - R_index_up.get(i));
+        for (int i = 0; i < rWaveIndices.size() - 1; i++) {
+            rrIntervals.add((rWaveIndices.get(i + 1)) - rWaveIndices.get(i));
         }
     }
 
@@ -251,54 +234,31 @@ public class FindPeaks extends Thread {
 
             // 從R波索引向前搜尋局部最小值
             for (int i = rIndex; i >= searchStartIndex; i--) {
-                if ( ecg_signal_origin[i] < minValue) {
-                    minValue =  ecg_signal_origin[i];
+                if (ecg_signal_origin[i] < minValue) {
+                    minValue = ecg_signal_origin[i];
                     qIndex = i;
                 }
             }
 
             // 新增找到的Q波索引
-            Q_index_up.add(qIndex);
+            qWaveIndices.add(qIndex);
         }
 
         return qWaveIndexes;
     }
 
-
-    public void calPeakListDown() {
-        float minFloat = 0;
-        for (float f : peakListDown) {
-            if (f != 0) {
-                minFloat = Math.min(minFloat, f);
-            } else {
-                if (minFloat != 0) {
-                    R_dot_down.add(minFloat);
-                }
-                minFloat = 0;
-            }
-        }
-        for (int i = 0; i < peakListDown.size(); i++) {
-            if (R_dot_down.contains(peakListDown.get(i))) {
-                R_index_down.add(i);
-            }
-        }
-        for (int i = 0; i < R_index_down.size() - 1; i++) {
-            RRIDown.add((R_index_down.get(i + 1)) - R_index_down.get(i));
-        }
-    }
-
     public void findTDot() {
         // 遍歷 R_index，找出每個 R 點之間的最大值
-        for (int i = 0; i < R_index_up.size() - 1; i++) {
-            int start = R_index_up.get(i) + 50;
-            int end = R_index_up.get(i + 1);
+        for (int i = 0; i < rWaveIndices.size() - 1; i++) {
+            int start = rWaveIndices.get(i) + 50;
+            int end = rWaveIndices.get(i + 1);
             int midPoint = (start + (end - start) / 2) - 50; // 計算中點
             float maxBetweenR = Float.MIN_VALUE;
             int tIndex = midPoint; // T點的初始索引為中點
 
             // 從 R 點的中點開始向前尋找，找出兩個 R 點之間的最大值
             for (int j = midPoint; j >= start; j--) {
-                float value = ecg_signal_origin[j];
+                float value = ecgSignal[j];
                 if (value > maxBetweenR) {
                     maxBetweenR = value;
                     tIndex = j; // 更新 T 點的索引
@@ -306,8 +266,8 @@ public class FindPeaks extends Thread {
             }
 
             // 將最大值和對應的索引添加到列表中
-            T_dot_up.add(maxBetweenR);
-            T_index_up.add(tIndex); // 添加 T 點的索引
+            tWavePeaks.add(maxBetweenR);
+            tWaveIndices.add(tIndex); // 添加 T 點的索引
         }
     }
 
@@ -352,7 +312,7 @@ public class FindPeaks extends Thread {
 
             if (rrInterval > 0) { // 避免除以零
                 // 計算QTc，直接使用毫秒，RR間隔已轉換為秒
-                float sqrtRr = (float)Math.sqrt(rrInterval);
+                float sqrtRr = (float) Math.sqrt(rrInterval);
                 float qtc = qtInterval / sqrtRr; // QTc計算結果自然是毫秒
                 qtcIntervals.add(qtc);
             }
@@ -535,8 +495,6 @@ public class FindPeaks extends Thread {
             float y = (float) butterworth.filter(x);
             floatArray2[in] = y;
             in++;
-            minValueB = Math.min(minValueB, y);
-            maxValueB = Math.max(maxValueB, y);
         }
         return floatArray2;
     }
