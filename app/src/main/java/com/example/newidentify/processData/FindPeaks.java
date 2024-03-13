@@ -1,10 +1,6 @@
 package com.example.newidentify.processData;
 
-import android.content.Context;
 import android.util.Log;
-
-import com.example.newidentify.MainActivity;
-import com.example.newidentify.Util.FileMaker;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,8 +58,11 @@ public class FindPeaks extends Thread {
     }
 
     private void processECGData() {
+
         // 進行ECG數據處理
         List<Float> bandStop = new ArrayList<>(Arrays.asList(butter_bandStop_filter(dataList, 55, 65, 1000, 1)));
+
+//        List<Float> highpass = Arrays.asList(butter_highpass_filter(bandStop,  1, 1000, 2));
 
         Float[] floats = butter_bandpass_filter(bandStop, 2, 10, 1000, 1);
 
@@ -92,7 +91,7 @@ public class FindPeaks extends Thread {
 
         findPeaks(ecgSignal, 1.5, 0);
 
-        findTDot();
+        findTWavePositions();
 
         /** 算平均心率 */
         for (int i : rrIntervals) {
@@ -157,7 +156,9 @@ public class FindPeaks extends Thread {
 
     public void adjustRPointPositions(Float[] ecg_signal_origin) {
         List<Integer> adjustedRIndexUp = new ArrayList<>();
+        List<Integer> tempRWaveIndices = new ArrayList<>();
         int windowSize = 100;
+        final int MIN_RR_INTERVAL = 200; // 最小RR間隔
 
         for (int originalIndex : rWaveIndices) {
             int startIndex = Math.max(0, originalIndex - windowSize);
@@ -172,17 +173,25 @@ public class FindPeaks extends Thread {
                 }
             }
 
-            adjustedRIndexUp.add(maxIndex);
+            tempRWaveIndices.add(maxIndex);
         }
+
+        // 在加入adjustedRIndexUp之前檢查RR間隔是否大於MIN_RR_INTERVAL
+        for (int i = 0; i < tempRWaveIndices.size(); i++) {
+            if (i == 0 || tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1) > MIN_RR_INTERVAL) {
+                adjustedRIndexUp.add(tempRWaveIndices.get(i));
+            }
+        }
+
         // 更新R_index_up為調整後的索引
         rWaveIndices.clear();
         rWaveIndices.addAll(adjustedRIndexUp);
 
         // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
-        calPeakListUp();
+        findRWavePositions();
     }
 
-    public void calPeakListUp() {
+    public void findRWavePositions() {
         float maxFloat = 0;
         boolean insideR = false;
 
@@ -247,7 +256,7 @@ public class FindPeaks extends Thread {
         return qWaveIndexes;
     }
 
-    public void findTDot() {
+    public void findTWavePositions() {
         // 遍歷 R_index，找出每個 R 點之間的最大值
         for (int i = 0; i < rWaveIndices.size() - 1; i++) {
             int start = rWaveIndices.get(i) + 50;
@@ -385,10 +394,10 @@ public class FindPeaks extends Thread {
     /**
      * 取半高寬
      */
-    public int calculateHalfWidths(Float[] ecg_signal, List<Integer> r_indexes) {
-        List<Integer> halfWidths = new ArrayList<>();
+    public float calculateHalfWidths(Float[] ecg_signal, List<Integer> r_indexes) {
+        List<Float> halfWidths = new ArrayList<>();
 
-        for (Integer r_index : r_indexes) {
+        for (int r_index : r_indexes) {
             Float r_value = ecg_signal[r_index];
             Float halfMaxValue = r_value / 2;
 
@@ -403,11 +412,11 @@ public class FindPeaks extends Thread {
             }
 
             // 計算並保存半高寬
-            int halfWidth = rightIndex - leftIndex;
+            float halfWidth = rightIndex - leftIndex;
             halfWidths.add(halfWidth);
         }
 
-        return calculateAverage(halfWidths);
+        return calculateAverageFloat((ArrayList<Float>) halfWidths);
     }
 
     public int calculateAverage(List<Integer> halfWidths) {
@@ -484,19 +493,17 @@ public class FindPeaks extends Thread {
         return floatArray;
     }
 
-    public Float[] butter_highpass_filter(List<Float> data, int lowCut, int highCut, int fs, int order) {
+    public Float[] butter_highpass_filter(List<Float> data, int cutoffFrequency, int fs, int order) {
         Butterworth butterworth = new Butterworth();
-        float widthFrequency = highCut - lowCut;
-        float centerFrequency = (highCut + lowCut) / 2;
-        butterworth.bandPass(order, fs, centerFrequency, widthFrequency);
-        int in = 0;
-        Float[] floatArray2 = new Float[data.size()];
-        for (float x : data) {
-            float y = (float) butterworth.filter(x);
-            floatArray2[in] = y;
-            in++;
+        butterworth.highPass(order, fs, cutoffFrequency); // 直接使用高通滤波
+        int index = 0;
+        Float[] filteredData = new Float[data.size()];
+        for (float sample : data) {
+            filteredData[index] = (float) butterworth.filter(sample);
+            index++;
         }
-        return floatArray2;
+        return filteredData;
     }
+
 }
 

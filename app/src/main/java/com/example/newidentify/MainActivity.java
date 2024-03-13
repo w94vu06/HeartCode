@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
      **/
     Button btn_detect, btn_clean, btn_stop;
     TextView txt_result;
+    TextView txt_average;
     TextView txt_checkID_status, txt_checkID_result;
     TextView txt_Register_values;
 
@@ -79,14 +80,14 @@ public class MainActivity extends AppCompatActivity {
     public float R_Med;
     public float R_VoltMed;
     public float RT_distanceMed;
-    public int halfWidth;
+    public float halfWidth;
 
     private ArrayList<Float> averageDiff4NumSelfList = new ArrayList<>();
     private ArrayList<Float> averageDiff4NumSbList = new ArrayList<>();
     private ArrayList<Float> R_MedList = new ArrayList<>();
     private ArrayList<Float> R_VoltMedList = new ArrayList<>();
     private ArrayList<Float> RT_distanceMedList = new ArrayList<>();
-    private ArrayList<Integer> halfWidthList = new ArrayList<>();
+    private ArrayList<Float> halfWidthList = new ArrayList<>();
 
 
     // Used to load the 'newidentify' library on application startup.
@@ -276,6 +277,7 @@ public class MainActivity extends AppCompatActivity {
         btn_detect = findViewById(R.id.btn_detect);
         btn_stop = findViewById(R.id.btn_stop);
         txt_result = findViewById(R.id.txt_result);
+        txt_average = findViewById(R.id.txt_average);
         txt_countDown = findViewById(R.id.txt_countDown);
         txt_BleStatus = findViewById(R.id.txt_BleStatus);
         txt_checkID_status = findViewById(R.id.txt_checkID_status);
@@ -438,6 +440,7 @@ public class MainActivity extends AppCompatActivity {
                 txt_checkID_result.setText("");
                 txt_checkID_status.setText("");
                 txt_Register_values.setText("");
+                txt_average.setText("");
                 initchart();
             });
             if (!isCountDownRunning) {
@@ -668,7 +671,7 @@ public class MainActivity extends AppCompatActivity {
                     R_VoltMed = findPeaks.calVoltDiffMed(findPeaks.ecgSignal, findPeaks.rWaveIndices, findPeaks.tWaveIndices);
                     RT_distanceMed = findPeaks.calDistanceDiffMed(findPeaks.rWaveIndices, findPeaks.tWaveIndices);
                     halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecgSignal, findPeaks.rWaveIndices);
-
+                    Log.d("why0", "R_Med: "+R_Med+"R_VoltMed:   "+R_VoltMed+"RT_distanceMed:   "+RT_distanceMed+"halfWidth:   "+halfWidth);
                     // 儲存測量結果並檢查註冊狀態
                     saveResultAndCheckRegistrationStatus();
                     //畫圖
@@ -736,29 +739,29 @@ public class MainActivity extends AppCompatActivity {
         saveMeasurementResultsToTinyDB();
     }
 
-    private float calDiffArray(float self, float R_Med, int halfWidth, float R_VoltMed, float RT_distanceMed) {
+    private float calDiffArray(float self, float R_Med, float halfWidth, float R_VoltMed, float RT_distanceMed) {
         ArrayList<Float> averageDiff4NumSelfList = tinyDB.getListFloat("averageDiff4NumSelfList");
         ArrayList<Float> R_MedList = tinyDB.getListFloat("R_MedList");
-        ArrayList<Integer> halfWidthList = tinyDB.getListInt("halfWidthList");
+        ArrayList<Float> halfWidthList = tinyDB.getListFloat("halfWidthList");
         ArrayList<Float> R_VoltMedList = tinyDB.getListFloat("R_VoltMedList");
         ArrayList<Float> RT_distanceMedList = tinyDB.getListFloat("RT_distanceMedList");
 
         float averageSelf = findPeaks.calculateAverageFloat(averageDiff4NumSelfList);
         float averageRMed = findPeaks.calculateAverageFloat(R_MedList);
-        int averageHalfWidth = findPeaks.calculateAverage(halfWidthList);
+        float averageHalfWidth = findPeaks.calculateAverageFloat(halfWidthList);
         float averageRVoltMed = findPeaks.calculateAverageFloat(R_VoltMedList);
         float averageRTDistanceMed = findPeaks.calculateAverageFloat(RT_distanceMedList);
 
         float selfDiff = (self - averageSelf) / averageSelf;
         float RMedDiff = (R_Med - averageRMed) / averageRMed;
-        int halfWidthDiff = (halfWidth - averageHalfWidth) / averageHalfWidth;
-        Log.d("halfwidth", "calDiffArray: " + halfWidthDiff + "  " + averageHalfWidth + "  " + halfWidth);
+        float halfWidthDiff = (float)(halfWidth - averageHalfWidth) / averageHalfWidth;
+        Log.d("halfwidth", "halfwidth: " + halfWidth + " - " + averageHalfWidth + " / " + averageHalfWidth);
         float RVoltMedDiff = (R_VoltMed - averageRVoltMed) / averageRVoltMed;
         float RTDistanceMedDiff = (RT_distanceMed - averageRTDistanceMed) / averageRTDistanceMed;
-
+        txt_average.setText("註冊標準" +"\n自己當下差異度: " + averageSelf + "/與註冊時差異度: " + averageSelf + "\nR電壓中位數差異: " + averageRMed + "/半高寬差異: " + averageHalfWidth + "\nR到T電壓差異: " + averageRVoltMed + "/R到T距離差異: " + averageRTDistanceMed);
         saveDiffStandardToTinyDB(selfDiff, RMedDiff, halfWidthDiff, RVoltMedDiff, RTDistanceMedDiff);// 將差異度標準保存到TinyDB
 
-        String resultText = String.format("與註冊3筆比較" + "\n自己當下差異度: %.3f/與註冊時差異度: %.3f\nR電壓中位數差異: %.3f/半高寬差異: %d\nR到T電壓差異: %.3f/R到T距離差異: %.3f",
+        String resultText = String.format("與註冊3筆比較" + "\n自己當下差異度: %.3f/與註冊時差異度: %.3f\nR電壓中位數差異: %.3f/半高寬差異: %.3f\nR到T電壓差異: %.3f/R到T距離差異: %.3f",
                 selfDiff, selfDiff, RMedDiff, halfWidthDiff, RVoltMedDiff, RTDistanceMedDiff);
 
         runOnUiThread(() -> txt_Register_values.setText(resultText));
@@ -808,15 +811,15 @@ public class MainActivity extends AppCompatActivity {
         tinyDB.putListFloat("R_MedList", R_MedList);
         tinyDB.putListFloat("R_VoltMedList", R_VoltMedList);
         tinyDB.putListFloat("RT_distanceMedList", RT_distanceMedList);
-        tinyDB.putListInt("halfWidthList", halfWidthList);
+        tinyDB.putListFloat("halfWidthList", halfWidthList);
     }
 
-    private void saveDiffStandardToTinyDB(float selfDiff, float RMedDiff, int halfWidthDiff, float RVoltMedDiff, float RTDistanceMedDiff) {
-        tinyDB.putFloat("selfDiffRule", (selfDiff));
-        tinyDB.putFloat("RMedDiffRule", (RMedDiff));
-        tinyDB.putInt("halfWidthDiffRule", (halfWidthDiff));
-        tinyDB.putFloat("RVoltMedDiffRule", (RVoltMedDiff));
-        tinyDB.putFloat("RTDistanceMedDiffRule", (RTDistanceMedDiff));
+    private void saveDiffStandardToTinyDB(float selfDiff, float RMedDiff, float halfWidthDiff, float RVoltMedDiff, float RTDistanceMedDiff) {
+        tinyDB.putFloat("selfDiffRule", selfDiff);
+        tinyDB.putFloat("RMedDiffRule", RMedDiff);
+        tinyDB.putFloat("halfWidthDiffRule", halfWidthDiff);
+        tinyDB.putFloat("RVoltMedDiffRule", RVoltMedDiff);
+        tinyDB.putFloat("RTDistanceMedDiffRule", RTDistanceMedDiff);
     }
 
     public void checkAndDisplayRegistrationStatus() {
@@ -825,7 +828,7 @@ public class MainActivity extends AppCompatActivity {
         R_MedList = tinyDB.getListFloat("R_MedList");
         R_VoltMedList = tinyDB.getListFloat("R_VoltMedList");
         RT_distanceMedList = tinyDB.getListFloat("RT_distanceMedList");
-        halfWidthList = tinyDB.getListInt("halfWidthList");
+        halfWidthList = tinyDB.getListFloat("halfWidthList");
 
         if (averageDiff4NumSelfList.size() == 0) {
             runOnUiThread(() -> {
