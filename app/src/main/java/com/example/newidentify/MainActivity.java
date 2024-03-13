@@ -577,7 +577,7 @@ public class MainActivity extends AppCompatActivity {
 
             runOnUiThread(() -> {
                 // 更新UI，例如顯示保存成功的提示
-                ShowToast("LP4儲存成功");
+                ShowToast("計算中...");
                 MediaScannerConnection.scanFile(this, new String[]{tempFile.getAbsolutePath()}, null, null);
             });
         } catch (IOException e) {
@@ -635,7 +635,7 @@ public class MainActivity extends AppCompatActivity {
         if (findPeaks != null && findPeaks.ecgSignal != null) {
             calMidError(findPeaks.ecgSignal);
             chartSetting.markRT(chart_df3, findPeaks.ecgSignal, findPeaks.rWaveIndices, findPeaks.tWaveIndices, findPeaks.qWaveIndices);
-            fileMaker.makeCSVFloatArray(findPeaks.ecgSignal, "ecgSignal.csv");
+//            fileMaker.makeCSVFloatArray(findPeaks.ecgSignal, "ecgSignal.csv");
         } else {
             Log.e("NullObjectReference", "findPeaks or findPeaks.ecgSignal is null");
         }
@@ -688,8 +688,13 @@ public class MainActivity extends AppCompatActivity {
             halfWidthList.add(halfWidth);
             saveMeasurementResultsToTinyDB();// 將測量結果保存到TinyDB
             // 更新UI
-            txt_checkID_status.setText("註冊還需: (" + (averageDiff4NumSelfList.size()) + "/3)"); // 更新註冊狀態
-            txt_checkID_result.setText("量測成功!");
+            if (averageDiff4NumSelfList.size() > 3) {
+                txt_checkID_status.setText("繼續量測下一筆吧!");
+                txt_checkID_result.setText("量測成功!");
+            }else {
+                txt_checkID_status.setText("註冊還需: (" + (averageDiff4NumSelfList.size()) + "/3)"); // 更新註冊狀態
+                txt_checkID_result.setText("量測成功!");
+            }
         }else {
             txt_checkID_result.setText("量測失敗，請重新測量");
             txt_checkID_status.setText("註冊還需: (" + averageDiff4NumSelfList.size() + "/3)"); // 量測失敗，不更新註冊狀態
@@ -724,7 +729,10 @@ public class MainActivity extends AppCompatActivity {
         }
         txt_result.setText(diff_UIValue);
         recordOutputToCSV(diff_value_toExcel);
-        minusListLastOne();// 減少最後一筆資料
+
+        if (numSelfList.size() == 4) {
+            minusListLastOne();// 減少最後一筆資料
+        }
         saveMeasurementResultsToTinyDB();
     }
 
