@@ -502,7 +502,7 @@ public class BT4 extends Service {
                 @Override
                 public void handleMessage(Message msg) {
                     if (step[0] == 0) {
-                        Delete_AllRecor(this);
+//                        Delete_AllRecor(this);
                     }
                     if (step[0] == 1) {
                         ReadBattery(this);

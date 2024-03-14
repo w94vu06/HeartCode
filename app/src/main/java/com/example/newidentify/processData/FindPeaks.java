@@ -46,6 +46,8 @@ public class FindPeaks extends Thread {
     float minValueB = Float.MAX_VALUE;
     float maxValueB = Float.MIN_VALUE;
 
+    public int errorCode = 0;
+
     public FindPeaks(List<Float> dataList) {
         this.dataList = dataList;
     }
@@ -82,11 +84,8 @@ public class FindPeaks extends Thread {
         if (floats.length >= 20000) {
             ecgSignal = Arrays.copyOfRange(floats, 4000, 22000);
         } else {
-            try {
-                throw new Exception("ECG信號數據長度不足");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            ecgSignal = floats;
+            Log.d(TAG, "訊號長度不足");
         }
 
         findPeaks(ecgSignal, 1.5, 0);
@@ -109,6 +108,7 @@ public class FindPeaks extends Thread {
     private void findPeaks(Float[] ecg_signal_origin, double peakThresholdFactor, int attempt) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
         int chunkSize = 4500;
+        errorCode = 0;
         for (int i = 0; i < ecg_signal_origin.length; i += chunkSize) {
             int endIndex = Math.min(i + chunkSize, ecg_signal_origin.length);
             Float[] chunk = Arrays.copyOfRange(ecg_signal_origin, i, endIndex);
@@ -150,6 +150,7 @@ public class FindPeaks extends Thread {
         } else if (attempt >= MAX_ATTEMPTS) {
             // 達到最大嘗試次數，終止尋找峰值
             Log.d(TAG, "達到最大嘗試次數，終止尋找峰值");
+            errorCode = 1;
         }
         Log.d("Rindex", "findPeaks: " + rWaveIndices.size());
     }
@@ -416,7 +417,7 @@ public class FindPeaks extends Thread {
             halfWidths.add(halfWidth);
         }
 
-        return calculateAverageFloat((ArrayList<Float>) halfWidths);
+        return calculate3AverageFloat((ArrayList<Float>) halfWidths);
     }
 
     public int calculateAverage(List<Integer> halfWidths) {
@@ -427,16 +428,18 @@ public class FindPeaks extends Thread {
         return sum / halfWidths.size();
     }
 
-    public float calculateAverageFloat(ArrayList<Float> list) {
+    public float calculate3AverageFloat(ArrayList<Float> list) {
         if (list == null || list.isEmpty()) {
             return 0;
         }
+        int count = Math.min(list.size(), 3);
         float sum = 0;
-        for (Float f : list) {
-            sum += f;
+        for (int i = 0; i < count; i++) {
+            sum += list.get(i);
         }
-        return sum / list.size();
+        return sum / count;
     }
+
 
 
     /**
