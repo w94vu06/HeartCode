@@ -241,6 +241,8 @@ public class FileMaker {
                             "半高寬", // avg-halfWidth
                             "RT電壓差", // RT-VDiff
                             "RT距離", // RT-Distance
+                            "心臟代號",// HeartCode
+                            "是否為本人"// isYou
                     };
                     /** 寫入標題 */
                     writer.write(String.join(",", title) + "\n");

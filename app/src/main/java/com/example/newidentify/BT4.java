@@ -30,6 +30,7 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.provider.Settings;
@@ -40,7 +41,7 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
 import java.util.ArrayList;
-        import java.util.List;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -61,6 +62,7 @@ public class BT4 extends Service {
     public final static String BLE_TRY_CONNECT = "BLE_TRY_CONNECT";
     public final static String BLE_DISCONNECTED = "BLE_DISCONNECTED";
     public final static String BLE_READ_FILE = "BLE_READ_FILE";
+    public final static String BLE_READ_BATTERY = "BLE_READ_BATTERY";
 
     public static UUID CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     public static String UUID_Notify = "49535343-1e4d-4bd9-ba61-23c647249616";
@@ -102,10 +104,7 @@ public class BT4 extends Service {
         int permission = ActivityCompat.checkSelfPermission(global_activity, Manifest.permission.ACCESS_FINE_LOCATION);
 
         if (permission != 0) {
-            ActivityCompat.requestPermissions(global_activity,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT},
-                    350
-            );
+            ActivityCompat.requestPermissions(global_activity, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, 350);
         } else {
             Log.d(bluetooth_Tag, "alreadyscan = " + alreadyscan);
             //搜尋
@@ -271,13 +270,11 @@ public class BT4 extends Service {
 
                 }
             });
+            ReadBattery(new Handler(Looper.getMainLooper()));
         }
 
         @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic
-                                                 characteristic, int status) {
-            Log.d("xxxxx", characteristic.toString() + "    yyy");
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             gatt.disconnect();
         }
 
@@ -295,11 +292,9 @@ public class BT4 extends Service {
     public int byteArrayToInt(byte[] b) {
         if (b.length == 4)
             return b[0] << 24 | (b[1] & 0xff) << 16 | (b[2] & 0xff) << 8 | (b[3] & 0xff);
-        else if (b.length == 2)
-            return 0x00 << 24 | 0x00 << 16 | (b[0] & 0xff) << 8 | (b[1] & 0xff);
+        else if (b.length == 2) return 0x00 << 24 | 0x00 << 16 | (b[0] & 0xff) << 8 | (b[1] & 0xff);
 
-        else if (b.length == 1)
-            return 0x00 << 24 | 0x00 << 16 | (0x00 & 0xff) << 8 | (b[0] & 0xff);
+        else if (b.length == 1) return 0x00 << 24 | 0x00 << 16 | (0x00 & 0xff) << 8 | (b[0] & 0xff);
 
         return 0;
     }
@@ -508,7 +503,7 @@ public class BT4 extends Service {
                         ReadBattery(this);
                     }
                     if (step[0] == 2) {
-                        read_handler.sendMessage(new Message());
+//                        read_handler.sendMessage(new Message());
                     }
                     step[0]++;
                 }

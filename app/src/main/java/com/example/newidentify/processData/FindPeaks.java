@@ -155,12 +155,13 @@ public class FindPeaks extends Thread {
         Log.d("Rindex", "findPeaks: " + rWaveIndices.size());
     }
 
+
     public void adjustRPointPositions(Float[] ecg_signal_origin) {
         List<Integer> adjustedRIndexUp = new ArrayList<>();
         List<Integer> tempRWaveIndices = new ArrayList<>();
+        List<Integer> rrIntervals = new ArrayList<>();
         int windowSize = 100;
-        final int MIN_RR_INTERVAL = 200; // 最小RR間隔
-
+        // 計算臨時R波索引
         for (int originalIndex : rWaveIndices) {
             int startIndex = Math.max(0, originalIndex - windowSize);
             int endIndex = Math.min(ecg_signal_origin.length - 1, originalIndex + windowSize);
@@ -173,13 +174,22 @@ public class FindPeaks extends Thread {
                     maxIndex = i;
                 }
             }
-
             tempRWaveIndices.add(maxIndex);
         }
 
-        // 在加入adjustedRIndexUp之前檢查RR間隔是否大於MIN_RR_INTERVAL
+        // 計算RR間隔
+        for (int i = 1; i < tempRWaveIndices.size(); i++) {
+            rrIntervals.add(tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1));
+        }
+
+        // 計算RR間隔的四分位數
+        Collections.sort(rrIntervals);
+        int Q1Index = rrIntervals.size() / 4; // 第一四分位數的索引
+        int minRRIntervalQ1 = rrIntervals.isEmpty() ? 0 : rrIntervals.get(Q1Index);
+
+        // 根據RR間隔的四分位數動態加入R波索引
         for (int i = 0; i < tempRWaveIndices.size(); i++) {
-            if (i == 0 || tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1) > MIN_RR_INTERVAL) {
+            if (i == 0 || tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1) > minRRIntervalQ1) {
                 adjustedRIndexUp.add(tempRWaveIndices.get(i));
             }
         }
@@ -188,7 +198,7 @@ public class FindPeaks extends Thread {
         rWaveIndices.clear();
         rWaveIndices.addAll(adjustedRIndexUp);
 
-        // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
+        // 由於R點位置可能有變化，對應的RRI、R_dot等也需要依據新的R點位置重新計算
         findRWavePositions();
     }
 

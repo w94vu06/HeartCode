@@ -111,8 +111,8 @@ public class ChartSetting {
     public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up, List<Integer> Q_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
-        for (int i = 0; i < ecg_signal_origin.length; i++) {
-            // 將ECG信號的數據點轉換為Entry對象並添加到entries列表
+        for (int i = 9000; i <= 15000 && i < ecg_signal_origin.length; i++) {
+            // 將ECG信號的數據點轉換為Entry對象並添加到entries列表，僅限於指定範圍
             entries.add(new Entry(i, ecg_signal_origin[i]));
         }
 
@@ -126,11 +126,7 @@ public class ChartSetting {
 
 
         // 標記R點
-        List<Entry> rEntries = new ArrayList<>();
-        for (int index : R_index_up) {
-            Log.d("RRRR", "markRT: " + index);
-            rEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
-        }
+        List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, 9000, 15000);
 
         LineDataSet rDataSet = new LineDataSet(rEntries, "R Points");
         rDataSet.setCircleColor(Color.RED);
@@ -140,10 +136,7 @@ public class ChartSetting {
         lineData.addDataSet(rDataSet);
 
         // 標記T點
-        List<Entry> tEntries = new ArrayList<>();
-        for (int index : T_index_up) {
-            tEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
-        }
+        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, 9000, 15000);
 
         LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
         tDataSet.setCircleColor(Color.BLUE);
@@ -154,10 +147,7 @@ public class ChartSetting {
         lineData.addDataSet(tDataSet);
 
         // 標記Q點
-        List<Entry> qEntries = new ArrayList<>();
-        for (int index : Q_index_up) {
-            qEntries.add(new Entry(index, ecg_signal_origin[index])); // 確保index在ecg_signal_origin的範圍內
-        }
+        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, 9000, 15000);
 
         LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
         qDataSet.setCircleColor(Color.GREEN);
@@ -185,6 +175,16 @@ public class ChartSetting {
         chart.getLegend().setEnabled(false);
 
         chart.invalidate();
+    }
+
+    private List<Entry> filterPointsInRange(List<Integer> indices, Float[] data, int start, int end) {
+        List<Entry> entries = new ArrayList<>();
+        for (int index : indices) {
+            if (index >= start && index <= end && index < data.length) {
+                entries.add(new Entry(index, data[index]));
+            }
+        }
+        return entries;
     }
 
     public static double Butterworth(ArrayList<Double> indata) {
