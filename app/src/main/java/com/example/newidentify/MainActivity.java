@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     public String diffValueSB = "註冊筆";
     public String heartCode = "註冊筆";
     public String isSelf = "註冊筆";
+    public float threshold ;
 
     public boolean isFinishRegistered = false; // 是否已註冊
 
@@ -86,14 +87,6 @@ public class MainActivity extends AppCompatActivity {
     public float RT_Volt;
     public float RT_Interval;
     public float halfWidth;
-
-
-    //新的數據
-    public float newDiffValueSelf;
-    public float newR_Med;
-    public float newR_VoltMed;
-    public float newRT_distanceMed;
-    public float newHalfWidth;
 
     private ArrayList<Float> avgDiffSelfList = new ArrayList<>();
     private ArrayList<Float> avgDiffSbList = new ArrayList<>();
@@ -191,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
         initDeviceDialog();//裝置選擇Dialog
         checkAndDisplayRegistrationStatus();//檢查註冊狀態
         showRegisterStandard();//顯示註冊標準
+        Log.d("ssss", "create: " + isFinishRegistered);
     }
 
     @Override
@@ -322,6 +316,7 @@ public class MainActivity extends AppCompatActivity {
                     txt_Register_values.setText("");
                     txt_average.setText("");
                     cleanRegistrationData();
+                    isFinishRegistered = false;
                 });
 //                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
@@ -725,7 +720,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void saveResultAndCheckRegistrationStatus() {
-
         if (!isFinishRegistered) {
             // 只有在註冊時才會檢查數據品質
             if (Math.abs(diffSelf) < 1 && halfWidth < 100) {
@@ -741,13 +735,17 @@ public class MainActivity extends AppCompatActivity {
                     txt_checkID_status.setText("註冊完成");
                     txt_checkID_result.setText("量測成功!");
                     calStandardDiffAndShow();// 計算差異度標準值並秀出
+                    // 註冊完成後，顯示註冊時間
+                    String date = new SimpleDateFormat("yyyyMMddHHmmss",
+                            Locale.getDefault()).format(System.currentTimeMillis());
+                    tinyDB.putString("thirdFileName", date);
                 }
                 if (avgDiffSelfList.size() < 3) {
                     txt_checkID_status.setText("註冊還需: (" + (avgDiffSelfList.size()) + "/3)");
                     txt_checkID_result.setText("量測成功!");
                 }
             } else {
-                txt_checkID_result.setText("量測失敗，請重新測量");
+                txt_checkID_result.setText("訊號品質不好，請重新量測");
                 txt_checkID_status.setText("註冊還需: (" + avgDiffSelfList.size() + "/3)"); // 量測失敗，不更新註冊狀態
             }
         } else {//新資料將會加到Array最後一筆
@@ -760,11 +758,14 @@ public class MainActivity extends AppCompatActivity {
         if (avgDiffSelfList.size() > 3) { //註冊完成開始計算
             calNewOldDiffArray(diffSelf, R_Med, halfWidth, RT_Volt, RT_Interval);
         }
+        Log.d("ssss", "s: " + isFinishRegistered);
+        Log.d("ssss", "s: " + avgDiffSelfList.size());
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 updateUIWithMeasureResultsAndOutputCSV();
                 minusListLastOne();// 減少最後一筆資料
+                saveMeasureResultsArrayToTinyDB();// 將3筆資料保存到TinyDB
             }
         });
 
@@ -781,26 +782,25 @@ public class MainActivity extends AppCompatActivity {
     private void updateUIWithMeasureResultsAndOutputCSV() {
         String diff_UIValue;
 
-        if (avgDiffSelfList.size() > 3) {
-            diffValueSB = String.valueOf(diffSelf);
-        }
-        Log.d("uuuu", "updateUIWithMeasureResultsAndOutputCSV: "+avgDiffSelfList.size());
+        Log.d("uuuu", "updateUIWithMeasureResultsAndOutputCSV: " + avgDiffSelfList.size());
 
         String ownDiff = "自己當下差異度:" + diffSelf;
         String sbDiff = "/與註冊時差異度:" + diffValueSB;
-        String r_value = "\nR電壓中位數:" + R_Med;
-        String rt_voltMed = "/RT電壓差:" + RT_Volt;
-        String rt_distanceMed = "\nRT距離:" + RT_Interval;
-        String r_halfWidth = "/半高寬:" + halfWidth;
+        String r_value = "\n當下R電壓中位數:" + R_Med;
+        String r_halfWidth = "/當下半高寬:" + halfWidth;
+        String rt_voltMed = "\n當下RT電壓差:" + RT_Volt;
+        String rt_distanceMed = "/當下RT距離:" + RT_Interval;
 
-        diff_UIValue = ownDiff + sbDiff + r_value + rt_voltMed + rt_distanceMed + r_halfWidth;
+        diff_UIValue = "當下量測\n" + ownDiff  + r_value +  r_halfWidth + rt_voltMed + rt_distanceMed;
 
         txt_result.setText(diff_UIValue);
 
         //提取檔名
         String[] parts = fileName.split("_");
         String partFileName = parts[1] + "_" + parts[2];
-
+        if (avgDiffSelfList.size() > 3) {
+            diffValueSB = "登入筆";
+        }
         recordOutputToCSV(partFileName + "," +
                 diffSelf + "," +
                 diffValueSB + "," +
@@ -809,9 +809,11 @@ public class MainActivity extends AppCompatActivity {
                 RT_Volt + "," +
                 RT_Interval + "," +
                 heartCode + "," +
-                isSelf);
-
+                isSelf + "," +
+                threshold);
         saveMeasureResultsArrayToTinyDB();
+
+
     }
 
     private void calNewOldDiffArray(float self, float R_Med, float halfWidth, float R_VoltMed, float RT_distanceMed) {
@@ -829,11 +831,16 @@ public class MainActivity extends AppCompatActivity {
         float RTVoltDiff = (R_VoltMed - RTVoltDiffRule) / RTVoltDiffRule;
         float RTInterval = (RT_distanceMed - RTIntervalRule) / RTIntervalRule;
 
-        String resultText = String.format("與註冊3筆比較" + "\n自己當下差異度: %.3f/與註冊時差異度: %.3f\nR電壓中位數差異: %.3f/半高寬差異: %.3f\nR到T電壓差異: %.3f/R到T距離差異: %.3f",
-                selfDiff, selfDiff, RMedDiff, halfWidthDiff, RTVoltDiff, RTInterval);
+        String resultText = String.format("與註冊3筆比較" +
+                        "\n自己當下差異度: %.3f" +
+                        "\nR電壓中位數差異: %.3f" +
+                        "/半高寬差異: %.3f" +
+                        "\nR到T電壓差異: %.3f" +
+                        "/R到T距離差異: %.3f",
+                selfDiff, RMedDiff, halfWidthDiff, RTVoltDiff, RTInterval);
 
         //ID驗證
-        calDiffHex(selfDiff, RMedDiff, RTVoltDiff, RTInterval, selfDiffRule);
+        calDiffHex(selfDiff, RMedDiff, halfWidthDiff, RTVoltDiff, RTInterval, selfDiffRule);
 
         runOnUiThread(() -> txt_Register_values.setText(resultText));
     }
@@ -884,12 +891,12 @@ public class MainActivity extends AppCompatActivity {
             txt_average.setText("尚未有註冊標準");
         } else {
 
-            txt_average.setText("註冊標準" +
+            txt_average.setText("註冊標準(" +tinyDB.getString("thirdFileName")+ ")" +
                     "\n自己當下差異度: " + tinyDB.getFloat("selfDiffRule") +
-                    "\nR電壓中位數差異: " + tinyDB.getFloat("RMedDiffRule") +
-                    "/半高寬差異: " + tinyDB.getFloat("halfWidthDiffRule") +
-                    "\nR到T電壓差異: " + tinyDB.getFloat("RTVoltDiffRule") +
-                    "/R到T距離差異: " + tinyDB.getFloat("RTIntervalRule"));
+                    "\nR電壓中位數平均: " + tinyDB.getFloat("RMedDiffRule") +
+                    "/半高寬平均: " + tinyDB.getFloat("halfWidthDiffRule") +
+                    "\nR到T電壓平均: " + tinyDB.getFloat("RTVoltDiffRule") +
+                    "/R到T距離平均: " + tinyDB.getFloat("RTIntervalRule"));
         }
         Log.d("hhhh", "showRegisterStandard: " + txt_average.toString());
     }
@@ -917,23 +924,28 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void calDiffHex(float selfDiffResult, float RMedDiffResult, float RTVoltDiffResult, float RTIntervalResult, float avgOwnDiffAbs) {
+    public void calDiffHex(float selfDiffResult, float RMedDiffResult, float halfWidthDiff, float RTVoltDiffResult, float RTIntervalResult, float avgOwnDiffAbs) {
 
         int scaledValue = (int) abs((selfDiffResult * 1000)); // 將 selfDiffRule 乘以 1000 並轉換成 int
         String ownDiffHex = String.format("%04X", scaledValue); // 將 scaledValue 格式化為 4 位十六進制數字
         Log.d("hhhh", "scaledValue: " + scaledValue + "\nownDiffHex: " + ownDiffHex);
-
-        avgOwnDiffAbs = Math.abs(avgOwnDiffAbs);// 取得 avgOwnDiff 的絕對值
+        threshold = 0.9f;
+        if (Math.abs(avgOwnDiffAbs) >= 0.6f) {
+            threshold = 0.7f;
+        }
+        Log.d("hhhh", "avgOwnDiffAbs: "+avgOwnDiffAbs+"/threshold: "+threshold);
+        avgOwnDiffAbs = Math.abs(avgOwnDiffAbs) * threshold;// 取得 avgOwnDiff 的絕對值
         // 計算比較結果，小於 avgOwnDiffAbs 給 1，否則給 0
         int compareRMedDiff = abs(RMedDiffResult) < avgOwnDiffAbs ? 1 : 0;
+        int compareHalfWidthDiff = abs(halfWidthDiff) < avgOwnDiffAbs ? 1 : 0;
         int compareRTVoltDiff = abs(RTVoltDiffResult) < avgOwnDiffAbs ? 1 : 0;
         int compareRTInterval = abs(RTIntervalResult) < avgOwnDiffAbs ? 1 : 0;
-
-        int isYourself = compareRMedDiff * 4 + compareRTVoltDiff * 2 + compareRTInterval;
-        String R3Hex = String.format("%02d", isYourself);
+        Log.d("hhhh", "calDiffHex: "+compareRMedDiff+" "+compareHalfWidthDiff+" "+compareRTVoltDiff+" "+compareRTInterval);
+        int isYourself = compareRMedDiff * 8 + compareHalfWidthDiff * 4 + compareRTVoltDiff * 2 + compareRTInterval * 1;
+        String R3Hex = String.format("%02X", isYourself);
         // 將二進制數字轉換成十進制數字
         String hexResult = ownDiffHex + R3Hex; // 將 ownDiffHex 和 R3Hex 組合成一個新的十六進制數字
-        String isYou = isYourself >= 4 ? "本人" : "非本人";
+        String isYou = isYourself > 8 ? "本人" : "非本人";
 
         txt_checkID_result.setText("心臟代號: " + hexResult + "/" + isYou);
         Log.d("hhhh", "ownDiffHex: " + ownDiffHex + "\nR3Hex: " + R3Hex + "\nhexResult: " + hexResult + "\n" + R3Hex);
@@ -943,6 +955,13 @@ public class MainActivity extends AppCompatActivity {
 
         tinyDB.putString("heartCode", hexResult);// 心臟代號
         tinyDB.putString("isYou", isYou);// 是否為本人
+
+        Log.d("checkresult", "自己差異度平均值: " + avgOwnDiffAbs);
+        Log.d("checkresult", "自己差異度: =(" + diffSelf +"-" + tinyDB.getFloat("selfDiffRule") + ")/"+ tinyDB.getFloat("selfDiffRule") );
+        Log.d("checkresult", "R電壓中位數: =(" + R_Med +"-" + tinyDB.getFloat("RMedDiffRule") + ")/"+ tinyDB.getFloat("RMedDiffRule") );
+        Log.d("checkresult", "半高寬: =(" + halfWidth +"-" + tinyDB.getFloat("halfWidthDiffRule") + ")/"+ tinyDB.getFloat("halfWidthDiffRule") );
+        Log.d("checkresult", "R到T電壓: =(" + RT_Volt +"-" + tinyDB.getFloat("RTVoltDiffRule") + ")/"+ tinyDB.getFloat("RTVoltDiffRule") );
+        Log.d("checkresult", "R到T距離: =(" + RT_Interval +"-" + tinyDB.getFloat("RTIntervalRule") + ")/"+ tinyDB.getFloat("RTIntervalRule") );
     }
 
     public void recordOutputToCSV(String finalResult) {
@@ -980,6 +999,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             runOnUiThread(() -> {
                 txt_checkID_status.setText("註冊所需檔案(" + avgDiffSelfList.size() + "/3)");
+                isFinishRegistered = true;
             });
         }
 
@@ -992,6 +1012,7 @@ public class MainActivity extends AppCompatActivity {
         avgRT_VoltMedList.clear();
         avgRT_IntervalMedList.clear();
         avgHalfWidthList.clear();
+        saveMeasureResultsArrayToTinyDB();
     }
 
 

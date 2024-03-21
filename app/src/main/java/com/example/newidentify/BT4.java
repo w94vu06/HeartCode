@@ -99,7 +99,6 @@ public class BT4 extends Service {
     public int Battery_Percent = 0;
     public int File_Count = 0;
 
-
     public void Bluetooth_init() {
         int permission = ActivityCompat.checkSelfPermission(global_activity, Manifest.permission.ACCESS_FINE_LOCATION);
 
@@ -693,11 +692,8 @@ public class BT4 extends Service {
                 for (int i = 2; i < 514; i++) {
                     if (file_data.size() < File_Count) {
                         file_data.add(Buffer_Array.get(i));
-
                     }
                 }
-
-//                Log.d(bluetooth_Tag, "Percent = " + (file_data.size() * 100 / File_Count));
                 global_activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {

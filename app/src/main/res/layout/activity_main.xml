@@ -169,7 +169,8 @@
                 android:fontFamily="@font/glowsanssc_condensed_book"
                 android:gravity="center"
                 android:text="量測結果"
-                android:textSize="@dimen/dp_15" />
+                android:textSize="@dimen/dp_15"
+                android:textColor="@color/green"/>
 
             <LinearLayout
                 android:layout_width="match_parent"
