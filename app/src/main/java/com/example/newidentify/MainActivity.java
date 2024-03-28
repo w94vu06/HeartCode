@@ -37,6 +37,7 @@ import com.example.newidentify.Util.EcgMath;
 import com.example.newidentify.Util.FindPeaksCallback;
 import com.example.newidentify.Util.TinyDB;
 import com.example.newidentify.processData.DecodeCha;
+import com.example.newidentify.processData.ECGAnalysis;
 import com.example.newidentify.processData.FindPeaks;
 import com.example.newidentify.Util.FileMaker;
 import com.example.newidentify.processData.SignalProcess;
@@ -166,6 +167,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     private SignalProcess signalProcess;
     private FindPeaks findPeaks;
     private EcgMath ecgMath = new EcgMath();
+    private ECGAnalysis ecgAnalysis = new ECGAnalysis();
     public CleanFile cleanFile;
     private FileMaker fileMaker = new FileMaker(this);
 
@@ -702,8 +704,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     diffSelf = signalProcess.calDiffSelf(floats, R_index);
                     R_Med = ecgMath.calculateMedian(findPeaks.rWavePeaks);
                     BPM = findPeaks.calculateBPM();
-                    RMSSD = findPeaks.calculateRMSSD(findPeaks.rrIntervals);
-                    SDNN = findPeaks.calculateSDNN(findPeaks.rrIntervals);
+                    RMSSD = ecgAnalysis.calculateRMSSD(findPeaks.rrIntervals);
+                    SDNN = ecgAnalysis.calculateSDNN(findPeaks.rrIntervals);
                     T_Med = ecgMath.calculateMedian(findPeaks.tWavePeaks);
                     halfWidth = findPeaks.calculateHalfWidths(findPeaks.ecgSignal, findPeaks.rWaveIndices);
                     RT_Volt = findPeaks.calVoltDiffMed(findPeaks.ecgSignal, findPeaks.rWaveIndices, findPeaks.tWaveIndices);
@@ -1013,6 +1015,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 + compareRTVoltDiff + " " + compareRTInterval);
         // 計算自己的心臟代號
         int isYourself = compareRMedDiff * 128 + compareBpmDiff * 64 + compareRMSSDDiff * 32 + compareSDNNDiff * 16 + compareTMedDiff * 8 + compareHalfWidthDiff * 4 + compareRTVoltDiff * 2 + compareRTInterval;
+
         String R3Hex = String.format("%02X", isYourself);
         // 將二進制數字轉換成十進制數字
         String hexResult = ownDiffHex + R3Hex; // 將 ownDiffHex 和 R3Hex 組合成一個新的十六進制數字

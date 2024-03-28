@@ -1,9 +1,12 @@
 package com.example.newidentify.processData;
 
+import android.os.Build;
 import android.util.Log;
 
 import com.example.newidentify.Util.EcgMath;
 import com.example.newidentify.Util.FindPeaksCallback;
+
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -303,34 +306,6 @@ public class FindPeaks extends Thread {
         return sum / rrIntervals.size();
     }
 
-    /**
-     * 計算RMSSD
-     */
-    public float calculateRMSSD(List<Integer> rrIntervals) {
-        float sum = 0;
-        for (int i = 1; i < rrIntervals.size(); i++) {
-            int diff = rrIntervals.get(i) - rrIntervals.get(i - 1);
-            sum += diff * diff;
-        }
-        return (float) Math.sqrt(sum / (rrIntervals.size() - 1));
-    }
-
-    /**
-     * 計算SDNN
-     */
-    public float calculateSDNN(List<Integer> rrIntervals) {
-        float sum = 0;
-        for (int i : rrIntervals) {
-            sum += i;
-        }
-        float mean = sum / rrIntervals.size();
-
-        float sumOfSquares = 0;
-        for (int i : rrIntervals) {
-            sumOfSquares += (i - mean) * (i - mean);
-        }
-        return (float) Math.sqrt(sumOfSquares / (rrIntervals.size() - 1));
-    }
 
 
     /**
