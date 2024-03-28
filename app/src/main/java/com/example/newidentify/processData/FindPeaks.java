@@ -2,6 +2,9 @@ package com.example.newidentify.processData;
 
 import android.util.Log;
 
+import com.example.newidentify.Util.EcgMath;
+import com.example.newidentify.Util.FindPeaksCallback;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -9,21 +12,24 @@ import java.util.List;
 
 import uk.me.berndporr.iirj.Butterworth;
 
+
 public class FindPeaks extends Thread {
 
     private static final String TAG = "FindPeaks";
     private final List<Float> dataList;
 
+    EcgMath ecgMath = new EcgMath();
+
     // 原始ECG信號數據
     public Float[] ecgSignal;
 
-    public double BPM;  // 平均心率
-
-    public List<Float> peakList = new ArrayList(); // 峰值列表
+    private int MAX_ATTEMPTS = 3;
 
     // R波峰值數據和索引
     public List<Float> rWavePeaks = new ArrayList<>();
     public List<Integer> rWaveIndices = new ArrayList<>();
+
+    public List<Float> peakList = new ArrayList<>();
 
     // T波峰值數據和索引
     public List<Float> tWavePeaks = new ArrayList<>();
@@ -35,8 +41,6 @@ public class FindPeaks extends Thread {
     // RR間隔列表
     public List<Integer> rrIntervals = new ArrayList<>();
 
-    private static final int MAX_ATTEMPTS = 3;
-
     float minValue = Float.MAX_VALUE;
     float maxValue = Float.MIN_VALUE;
 
@@ -45,8 +49,6 @@ public class FindPeaks extends Thread {
 
     float minValueB = Float.MAX_VALUE;
     float maxValueB = Float.MIN_VALUE;
-
-    public int errorCode = 0;
 
     public FindPeaks(List<Float> dataList) {
         this.dataList = dataList;
@@ -60,7 +62,6 @@ public class FindPeaks extends Thread {
     }
 
     private void processECGData() {
-
         // 進行ECG數據處理
         List<Float> bandStop = new ArrayList<>(Arrays.asList(butter_bandStop_filter(dataList, 55, 65, 1000, 1)));
 
@@ -89,13 +90,8 @@ public class FindPeaks extends Thread {
         }
 
         findPeaks(ecgSignal, 1.5, 0);
+        findTWavePositions(rWaveIndices);
 
-        findTWavePositions();
-
-        /** 算平均心率 */
-        for (int i : rrIntervals) {
-            BPM += 60 * 1000 / i;
-        }
         //初始化
         minValue = Float.MAX_VALUE;
         maxValue = 0;
@@ -108,7 +104,6 @@ public class FindPeaks extends Thread {
     private void findPeaks(Float[] ecg_signal_origin, double peakThresholdFactor, int attempt) {
         // 遍歷小數組中的每個元素，將符合條件的值加入到對應的列表中
         int chunkSize = 4500;
-        errorCode = 0;
         for (int i = 0; i < ecg_signal_origin.length; i += chunkSize) {
             int endIndex = Math.min(i + chunkSize, ecg_signal_origin.length);
             Float[] chunk = Arrays.copyOfRange(ecg_signal_origin, i, endIndex);
@@ -150,18 +145,16 @@ public class FindPeaks extends Thread {
         } else if (attempt >= MAX_ATTEMPTS) {
             // 達到最大嘗試次數，終止尋找峰值
             Log.d(TAG, "達到最大嘗試次數，終止尋找峰值");
-            errorCode = 1;
         }
         Log.d("Rindex", "findPeaks: " + rWaveIndices.size());
     }
 
-
     public void adjustRPointPositions(Float[] ecg_signal_origin) {
         List<Integer> adjustedRIndexUp = new ArrayList<>();
         List<Integer> tempRWaveIndices = new ArrayList<>();
-        List<Integer> rrIntervals = new ArrayList<>();
         int windowSize = 100;
-        // 計算臨時R波索引
+        final int MIN_RR_INTERVAL = 200; // 最小RR間隔
+
         for (int originalIndex : rWaveIndices) {
             int startIndex = Math.max(0, originalIndex - windowSize);
             int endIndex = Math.min(ecg_signal_origin.length - 1, originalIndex + windowSize);
@@ -174,22 +167,13 @@ public class FindPeaks extends Thread {
                     maxIndex = i;
                 }
             }
+
             tempRWaveIndices.add(maxIndex);
         }
 
-        // 計算RR間隔
-        for (int i = 1; i < tempRWaveIndices.size(); i++) {
-            rrIntervals.add(tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1));
-        }
-
-        // 計算RR間隔的四分位數
-        Collections.sort(rrIntervals);
-        int Q1Index = rrIntervals.size() / 4; // 第一四分位數的索引
-        int minRRIntervalQ1 = rrIntervals.isEmpty() ? 0 : rrIntervals.get(Q1Index);
-
-        // 根據RR間隔的四分位數動態加入R波索引
+        // 在加入adjustedRIndexUp之前檢查RR間隔是否大於MIN_RR_INTERVAL
         for (int i = 0; i < tempRWaveIndices.size(); i++) {
-            if (i == 0 || tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1) > minRRIntervalQ1) {
+            if (i == 0 || tempRWaveIndices.get(i) - tempRWaveIndices.get(i - 1) > MIN_RR_INTERVAL) {
                 adjustedRIndexUp.add(tempRWaveIndices.get(i));
             }
         }
@@ -198,7 +182,7 @@ public class FindPeaks extends Thread {
         rWaveIndices.clear();
         rWaveIndices.addAll(adjustedRIndexUp);
 
-        // 由於R點位置可能有變化，對應的RRI、R_dot等也需要依據新的R點位置重新計算
+        // 由於R點位置可能有變化，因此對應的RRI、R_dot等也需要依照新的R點位置重新計算
         findRWavePositions();
     }
 
@@ -237,11 +221,9 @@ public class FindPeaks extends Thread {
 
         findQWavePositions(ecgSignal, rWaveIndices);
 
-        // 計算RR間距
-        for (int i = 0; i < rWaveIndices.size() - 1; i++) {
-            rrIntervals.add((rWaveIndices.get(i + 1)) - rWaveIndices.get(i));
-        }
+        calculateRRi();
     }
+
 
     public List<Integer> findQWavePositions(Float[] ecg_signal_origin, List<Integer> R_index_up) {
         List<Integer> qWaveIndexes = new ArrayList<>();
@@ -259,7 +241,6 @@ public class FindPeaks extends Thread {
                     qIndex = i;
                 }
             }
-
             // 新增找到的Q波索引
             qWaveIndices.add(qIndex);
         }
@@ -267,7 +248,7 @@ public class FindPeaks extends Thread {
         return qWaveIndexes;
     }
 
-    public void findTWavePositions() {
+    public void findTWavePositions(List<Integer> rWaveIndices) {
         // 遍歷 R_index，找出每個 R 點之間的最大值
         for (int i = 0; i < rWaveIndices.size() - 1; i++) {
             int start = rWaveIndices.get(i) + 50;
@@ -291,6 +272,70 @@ public class FindPeaks extends Thread {
         }
     }
 
+    /**
+     * RRi計算
+     */
+    public void calculateRRi() {
+        // 計算RR間距
+        ArrayList<Integer> rrIntervalsArrayList = new ArrayList<>();
+        ArrayList<Integer> filteredRRIntervals = new ArrayList<>();
+
+        for (int i = 0; i < rWaveIndices.size() - 1; i++) {
+            rrIntervalsArrayList.add((rWaveIndices.get(i + 1)) - rWaveIndices.get(i));
+        }
+
+        double medianRR = ecgMath.calculateMedianDouble(rrIntervalsArrayList);
+        for (int rrInterval : rrIntervalsArrayList) {
+            if (rrInterval <= medianRR) {
+                rrIntervals.add(rrInterval);
+            }
+        }
+    }
+
+    /**
+     * 計算BPM
+     */
+    public float calculateBPM() {
+        float sum = 0;
+        for (int i : rrIntervals) {
+            sum += 60 * 1000 / i;
+        }
+        return sum / rrIntervals.size();
+    }
+
+    /**
+     * 計算RMSSD
+     */
+    public float calculateRMSSD(List<Integer> rrIntervals) {
+        float sum = 0;
+        for (int i = 1; i < rrIntervals.size(); i++) {
+            int diff = rrIntervals.get(i) - rrIntervals.get(i - 1);
+            sum += diff * diff;
+        }
+        return (float) Math.sqrt(sum / (rrIntervals.size() - 1));
+    }
+
+    /**
+     * 計算SDNN
+     */
+    public float calculateSDNN(List<Integer> rrIntervals) {
+        float sum = 0;
+        for (int i : rrIntervals) {
+            sum += i;
+        }
+        float mean = sum / rrIntervals.size();
+
+        float sumOfSquares = 0;
+        for (int i : rrIntervals) {
+            sumOfSquares += (i - mean) * (i - mean);
+        }
+        return (float) Math.sqrt(sumOfSquares / (rrIntervals.size() - 1));
+    }
+
+
+    /**
+     * 計算電壓差異中位數
+     */
     public float calVoltDiffMed(Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up) {
         List<Float> voltageDifferences = new ArrayList<>();
 
@@ -301,10 +346,12 @@ public class FindPeaks extends Thread {
             voltageDifferences.add(difference);
         }
 
-        return calculateMedian(voltageDifferences);
+        return ecgMath.calculateMedian(voltageDifferences);
     }
 
-
+    /**
+     * 計算距離差異中位數
+     */
     public float calDistanceDiffMed(List<Integer> R_index_up, List<Integer> T_index_up) {
         List<Float> distanceDifferences = new ArrayList<>();
 
@@ -313,7 +360,7 @@ public class FindPeaks extends Thread {
             distanceDifferences.add(difference);
         }
 
-        return calculateMedian(distanceDifferences);
+        return ecgMath.calculateMedian(distanceDifferences);
     }
 
     /**
@@ -338,9 +385,8 @@ public class FindPeaks extends Thread {
             }
         }
 
-        return calculateMedian(qtcIntervals);
+        return ecgMath.calculateMedian(qtcIntervals);
     }
-
 
     public float calculateRTSlope(List<Float> R_dot_up, List<Integer> R_index_up, List<Float> T_dot_up, List<Integer> T_index_up) {
         List<Float> rtSlopes = new ArrayList<>();
@@ -360,47 +406,9 @@ public class FindPeaks extends Thread {
             rtSlopes.add(slope);
         }
 
-        return calculateMedian(rtSlopes); // 假设这个方法能正确计算Float列表的中位数
+        return ecgMath.calculateMedian(rtSlopes); // 假设这个方法能正确计算Float列表的中位数
     }
 
-
-    /**
-     * 取中位數
-     */
-    public float calculateMedian(List<Float> list) {
-        Collections.sort(list);
-        if (list.size() % 2 == 0) {
-            return (list.get(list.size() / 2 - 1) + list.get(list.size() / 2)) / 2.0f;
-        } else {
-            return list.get(list.size() / 2);
-        }
-    }
-
-    /**
-     * 取最大值
-     */
-    public float calculateMax(List<Float> list) {
-        return Collections.max(list);
-    }
-
-    /**
-     * 取標準差
-     */
-    public float calculateSTD(List<Float> list) {
-        float sum = 0, standardDeviation = 0;
-        int length = list.size();
-
-        for (float num : list) {
-            sum += num;
-        }
-        float mean = sum / length;
-
-        for (float num : list) {
-            standardDeviation += Math.pow(num - mean, 2);
-        }
-
-        return (float) Math.sqrt(standardDeviation / length);
-    }
 
     /**
      * 取半高寬
@@ -430,14 +438,6 @@ public class FindPeaks extends Thread {
         return calculate3AverageFloat((ArrayList<Float>) halfWidths);
     }
 
-    public int calculateAverage(List<Integer> halfWidths) {
-        int sum = 0;
-        for (int halfWidth : halfWidths) {
-            sum += halfWidth;
-        }
-        return sum / halfWidths.size();
-    }
-
     public float calculate3AverageFloat(ArrayList<Float> list) {
         if (list == null || list.isEmpty()) {
             return 0;
@@ -449,8 +449,6 @@ public class FindPeaks extends Thread {
         }
         return sum / count;
     }
-
-
 
     /**
      * 巴特沃斯濾波器

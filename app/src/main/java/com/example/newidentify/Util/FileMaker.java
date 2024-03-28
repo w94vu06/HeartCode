@@ -238,6 +238,10 @@ public class FileMaker {
                             "自己當下差異度", // own_diff
                             "與註冊時差異度", // regi_diff
                             "R電壓中位數", // RV-med
+                            "心率",
+                            "RMSSD" ,
+                            "SDNN",
+                            "T電壓中位數", // TV-med
                             "半高寬", // avg-halfWidth
                             "RT電壓差", // RT-VDiff
                             "RT距離", // RT-Distance

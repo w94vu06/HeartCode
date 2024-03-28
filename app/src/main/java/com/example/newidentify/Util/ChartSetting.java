@@ -11,11 +11,15 @@ import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChartSetting {
+
+    int Start = 0;
+    int End = 18000;
 
     public void initchart(LineChart lineChart) {
         // 允許滑動
@@ -111,7 +115,7 @@ public class ChartSetting {
     public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up, List<Integer> Q_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
-        for (int i = 9000; i <= 15000 && i < ecg_signal_origin.length; i++) {
+        for (int i = Start; i <= End && i < ecg_signal_origin.length; i++) {
             // 將ECG信號的數據點轉換為Entry對象並添加到entries列表，僅限於指定範圍
             entries.add(new Entry(i, ecg_signal_origin[i]));
         }
@@ -126,7 +130,7 @@ public class ChartSetting {
 
 
         // 標記R點
-        List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, 9000, 15000);
+        List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, Start, End);
 
         LineDataSet rDataSet = new LineDataSet(rEntries, "R Points");
         rDataSet.setCircleColor(Color.RED);
@@ -136,7 +140,7 @@ public class ChartSetting {
         lineData.addDataSet(rDataSet);
 
         // 標記T點
-        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, 9000, 15000);
+        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
 
         LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
         tDataSet.setCircleColor(Color.BLUE);
@@ -147,7 +151,7 @@ public class ChartSetting {
         lineData.addDataSet(tDataSet);
 
         // 標記Q點
-        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, 9000, 15000);
+        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
 
         LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
         qDataSet.setCircleColor(Color.GREEN);
@@ -185,6 +189,41 @@ public class ChartSetting {
             }
         }
         return entries;
+    }
+
+    public void lineChart_JDSP(double[] signal, int[] peaks, LineChart chart) {
+        List<Entry> entries = new ArrayList<>();
+        for (int i = 0; i < signal.length; i++) {
+            entries.add(new Entry(i, (float) signal[i]));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
+        dataSet.setColor(Color.BLACK);
+        dataSet.setValueTextColor(Color.BLACK);
+        dataSet.setDrawCircles(false); // 不繪製每個點的圓圈
+        dataSet.setDrawValues(false); // 不繪製點的值
+
+        List<Entry> peakEntries = new ArrayList<>();
+        for (int peakIndex : peaks) {
+            peakEntries.add(new Entry(peakIndex, (float) signal[peakIndex]));
+        }
+
+        LineDataSet peakDataSet = new LineDataSet(peakEntries, "Peaks");
+        peakDataSet.setCircleColor(Color.RED);
+        peakDataSet.setCircleRadius(6f);
+        peakDataSet.setDrawCircleHole(false);
+        peakDataSet.setDrawCircles(true);
+        peakDataSet.setDrawValues(false);
+
+        // 將資料集新增至圖表
+        List<ILineDataSet> dataSets = new ArrayList<>();
+        dataSets.add(dataSet);
+        dataSets.add(peakDataSet);
+
+        LineData lineData = new LineData(dataSets);
+
+        chart.setData(lineData);
+        chart.invalidate(); // 刷新圖表
     }
 
     public static double Butterworth(ArrayList<Double> indata) {

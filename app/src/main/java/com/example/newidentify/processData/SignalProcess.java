@@ -1,15 +1,23 @@
 package com.example.newidentify.processData;
 
+import static com.example.newidentify.MainActivity.chart_df;
+import static com.example.newidentify.MainActivity.global_activity;
+
+import android.graphics.Color;
+
 import com.example.newidentify.MainActivity;
+import com.example.newidentify.Util.ChartSetting;
 import com.example.newidentify.Util.TinyDB;
 import com.github.mikephil.charting.data.Entry;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 public class SignalProcess extends Thread {
     private static final String TAG = "SignalProcess";
+
 
     public List<Float> getReduceRR100(List<Float> dataList, int startIndex, int endIndex) {
         List<Entry> dataBetweenTwoR = new ArrayList<>();
@@ -114,6 +122,27 @@ public class SignalProcess extends Thread {
             int middleIndex = size / 2;
             return values.get(middleIndex);
         }
+    }
+
+    public float calDiffSelf(Float[] floats, List<Integer> R_index) {
+        List<Float> df1 = getReduceRR100(Arrays.asList(floats), R_index.get(10), R_index.get(12));
+        List<Float> df2 = getReduceRR100(Arrays.asList(floats), R_index.get(3), R_index.get(5));
+        List<Float> df3 = getReduceRR100(Arrays.asList(floats), R_index.get(6), R_index.get(8));
+        List<Float> df4 = getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
+
+        float diff12 = calMidDiff(df1, df2);
+        float diff13 = calMidDiff(df1, df3);
+        float diff14 = calMidDiff(df1, df4);
+        float diff23 = calMidDiff(df2, df3);
+
+        float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
+
+        ChartSetting chartSetting = new ChartSetting();
+        global_activity.runOnUiThread(() -> {
+            chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
+        });
+
+        return diffSelf;
     }
 
 }
