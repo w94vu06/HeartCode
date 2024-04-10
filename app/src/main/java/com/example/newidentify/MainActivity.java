@@ -343,25 +343,26 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                stopALL();
+//                stopALL();
+                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
         });
         btn_clean.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                runOnUiThread(() -> {
-//                    tinyDB.clear();
-//                    editor.clear();
-//                    editor.apply();
-//                    ShowToast("已清除註冊檔案");
-//                    txt_checkID_status.setText("尚未有註冊資料");
-//                    txt_checkID_result.setText("");
-//                    txt_Register_values.setText("");
-//                    txt_average.setText("");
-//                    cleanRegistrationData();
-//                    isFinishRegistered = false;
-//                });
-                processAllCHAFilesInDirectory();
+                runOnUiThread(() -> {
+                    tinyDB.clear();
+                    editor.clear();
+                    editor.apply();
+                    ShowToast("已清除註冊檔案");
+                    txt_checkID_status.setText("尚未有註冊資料");
+                    txt_checkID_result.setText("");
+                    txt_Register_values.setText("");
+                    txt_average.setText("");
+                    cleanRegistrationData();
+                    isFinishRegistered = false;
+                });
+
             }
         });
     }
@@ -624,7 +625,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                                 saveLP4(bt4.file_data);
                             }
                         }).start();
-//                        saveLP4(bt4.file_data);
                     } else {
                         ShowToast("檔案大小為0");
                     }
@@ -832,7 +832,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         avg_pNN50List.add(pNN50);
         avgNN50List.add(NN50);
         avgCvList.add(CV);
-
     }
 
     public void saveMeasureResultsArrayToTinyDB() {
@@ -893,11 +892,17 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 LfHf_value + SDSD_value + Lf_value + Hf_value + TP_value + AVNN_value + nLf_value + nHf_value + SD1_value + SD2_value + pNN50_value + NN50_value + CV_value;
 
         txt_result.setText(diff_UIValue);
-        Log.d("now", "now: "+diff_UIValue);
+        Log.d("now", "now: " + diff_UIValue);
 
         //提取檔名
+        String partFileName;
         String[] parts = fileName.split("_");
-        String partFileName = parts[1] + "_" + parts[2];
+        if (fileName.startsWith("l_")) {
+            partFileName = parts[1] + "_" + parts[2];
+        } else {
+            partFileName = fileName;
+        }
+
         if (avgDiffSelfList.size() > 3) {
             diffValueSB = "登入筆";
         }
@@ -1227,12 +1232,12 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 + compareRTVoltDiff + " " + compareRTInterval);
         // 計算自己的心臟代號
         int isYourself = (int) (compareRMedDiff * Math.pow(2, 20) + compareBpmDiff * Math.pow(2, 19) + compareRMSSDDiff * Math.pow(2, 18) +
-                        compareSDNNDiff * Math.pow(2, 17) + compareTMedDiff * Math.pow(2, 16) + compareHalfWidthDiff * Math.pow(2, 15) +
-                        compareRTVoltDiff * Math.pow(2, 14) + compareRTInterval * Math.pow(2, 13) + compareLfHf * Math.pow(2, 12) +
-                        compareSDSD * Math.pow(2, 11) + compareLf * Math.pow(2, 10) + compareHf * Math.pow(2, 9) +
-                        compareTP * Math.pow(2, 8) + compareAVNN * Math.pow(2, 7) + comparenLf * Math.pow(2, 6) +
-                        comparenHf * Math.pow(2, 5) + compareSD1 * Math.pow(2, 4) + compareSD2 * Math.pow(2, 3) +
-                        comparepNN50 * Math.pow(2, 2) + compareNN50 * Math.pow(2, 1) + compareCV * Math.pow(2, 0));
+                compareSDNNDiff * Math.pow(2, 17) + compareTMedDiff * Math.pow(2, 16) + compareHalfWidthDiff * Math.pow(2, 15) +
+                compareRTVoltDiff * Math.pow(2, 14) + compareRTInterval * Math.pow(2, 13) + compareLfHf * Math.pow(2, 12) +
+                compareSDSD * Math.pow(2, 11) + compareLf * Math.pow(2, 10) + compareHf * Math.pow(2, 9) +
+                compareTP * Math.pow(2, 8) + compareAVNN * Math.pow(2, 7) + comparenLf * Math.pow(2, 6) +
+                comparenHf * Math.pow(2, 5) + compareSD1 * Math.pow(2, 4) + compareSD2 * Math.pow(2, 3) +
+                comparepNN50 * Math.pow(2, 2) + compareNN50 * Math.pow(2, 1) + compareCV * Math.pow(2, 0));
         // 2097151
         String R3Hex = String.format("%06X", isYourself);
         // 將二進制數字轉換成十進制數字
@@ -1349,8 +1354,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     /**
      * 遍歷指定目錄下的所有文件，並對每個CHA文件執行readCHA操作。
      */
-    public void processAllCHAFilesInDirectory() {
-        String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha";
+    public void processAllCHAFilesInDirectory(String directoryPath) {
         File directory = new File(directoryPath);
         // 確保該路徑是目錄
         if (directory.isDirectory()) {
@@ -1368,8 +1372,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                         String fileName = file.getName();
 
                         // 對每個CHA檔案執行readCHA操作
-                        readCHA(filePath);
-                        String s = filePath + File.separator + fileName;
+                        readCHA(file.getAbsolutePath());
                     }
                 }
             } else {

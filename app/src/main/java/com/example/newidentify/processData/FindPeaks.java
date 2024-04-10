@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.TreeSet;
 
 import uk.me.berndporr.iirj.Butterworth;
 
@@ -281,18 +282,17 @@ public class FindPeaks extends Thread {
     public void calculateRRi() {
         // 計算RR間距
         ArrayList<Integer> rrIntervalsArrayList = new ArrayList<>();
-        ArrayList<Integer> filteredRRIntervals = new ArrayList<>();
 
         for (int i = 0; i < rWaveIndices.size() - 1; i++) {
             rrIntervalsArrayList.add((rWaveIndices.get(i + 1)) - rWaveIndices.get(i));
         }
-
-        double medianRR = ecgMath.calculateMedianDouble(rrIntervalsArrayList);
-        for (int rrInterval : rrIntervalsArrayList) {
-            if (rrInterval <= medianRR) {
-                rrIntervals.add(rrInterval);
-            }
-        }
+        rrIntervals.addAll(rrIntervalsArrayList);
+//        double medianRR = ecgMath.calculateMedianDouble(rrIntervalsArrayList);
+//        for (int rrInterval : rrIntervalsArrayList) {
+//            if (rrInterval <= medianRR) {
+//                rrIntervals.add(rrInterval);
+//            }
+//        }
     }
 
     /**

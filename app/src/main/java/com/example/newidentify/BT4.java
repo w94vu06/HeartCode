@@ -269,7 +269,7 @@ public class BT4 extends Service {
 
                 }
             });
-            ReadBattery(new Handler(Looper.getMainLooper()));
+
         }
 
         @Override
