@@ -101,8 +101,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     public float RT_Interval;
     public float LfHf;
     public float SDSD;
-    public float Lf;
-    public float Hf;
     public float TP;
     public float AVNN;
     public float nLf;
@@ -126,8 +124,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     private ArrayList<Float> avgRT_IntervalMedList = new ArrayList<>();
     private ArrayList<Float> avgLfHfList = new ArrayList<>();
     private ArrayList<Float> avgSdsdList = new ArrayList<>();
-    private ArrayList<Float> avgLfList = new ArrayList<>();
-    private ArrayList<Float> avgHfList = new ArrayList<>();
     private ArrayList<Float> avgTpList = new ArrayList<>();
     private ArrayList<Float> avgAvnnList = new ArrayList<>();
     private ArrayList<Float> avg_nLfList = new ArrayList<>();
@@ -743,10 +739,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     //HRV
                     LfHf = (float) ecgAnalysis.calculateLFHF(findPeaks.rrIntervals);
                     SDSD = (float) ecgAnalysis.calculateSDSD(findPeaks.rrIntervals);
-                    Lf = (float) ecgAnalysis.lfPower;
-                    Hf = (float) ecgAnalysis.hfPower;
                     TP = (float) ecgAnalysis.calculateTP(findPeaks.rrIntervals);
-                    AVNN = (float) ecgAnalysis.calculateAVNN(findPeaks.rrIntervals);
+                    AVNN = ecgAnalysis.calculateAVNN(findPeaks.rrIntervals);
                     Map<String, Float> lfHfMap = ecgAnalysis.calculateNormalizedLFHF(
                             ecgAnalysis.interpolatedRR, ecgAnalysis.lfPower + ecgAnalysis.hfPower, 0.0, 1000.0); // 計算標準化的LF和HF;
                     nLf = lfHfMap.get("nLF");
@@ -821,8 +815,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         avgRT_IntervalMedList.add(RT_Interval);
         avgLfHfList.add(LfHf);
         avgSdsdList.add(SDSD);
-        avgLfList.add(Lf);
-        avgHfList.add(Hf);
         avgTpList.add(TP);
         avgAvnnList.add(AVNN);
         avg_nLfList.add(nLf);
@@ -846,8 +838,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         tinyDB.putListFloat("RT_distanceMedList", avgRT_IntervalMedList);
         tinyDB.putListFloat("LfHfList", avgLfHfList);
         tinyDB.putListFloat("SdsdList", avgSdsdList);
-        tinyDB.putListFloat("LfList", avgLfList);
-        tinyDB.putListFloat("HfList", avgHfList);
         tinyDB.putListFloat("TpList", avgTpList);
         tinyDB.putListFloat("AvnnList", avgAvnnList);
         tinyDB.putListFloat("nLfList", avg_nLfList);
@@ -876,8 +866,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         String rt_distanceMed = "/當下RT距離:" + RT_Interval;
         String LfHf_value = "\n當下LF/HF:" + LfHf;
         String SDSD_value = "/當下SDSD:" + SDSD;
-        String Lf_value = "\n當下LF:" + Lf;
-        String Hf_value = "/當下HF:" + Hf;
         String TP_value = "\n當下TP:" + TP;
         String AVNN_value = "/當下AVNN:" + AVNN;
         String nLf_value = "\n當下nLF:" + nLf;
@@ -889,7 +877,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         String CV_value = "\n當下CV:" + CV;
 
         diff_UIValue = "當下量測\n" + ownDiff + sbDiff + r_value + bpm_value + rmssd_value + sdnn_value + t_value + r_halfWidth + rt_voltMed + rt_distanceMed +
-                LfHf_value + SDSD_value + Lf_value + Hf_value + TP_value + AVNN_value + nLf_value + nHf_value + SD1_value + SD2_value + pNN50_value + NN50_value + CV_value;
+                LfHf_value + SDSD_value + TP_value + AVNN_value + nLf_value + nHf_value + SD1_value + SD2_value + pNN50_value + NN50_value + CV_value;
 
         txt_result.setText(diff_UIValue);
         Log.d("now", "now: " + diff_UIValue);
@@ -919,8 +907,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 RT_Interval + "," +
                 LfHf + "," +
                 SDSD + "," +
-                Lf + "," +
-                Hf + "," +
                 TP + "," +
                 AVNN + "," +
                 nLf + "," +
@@ -949,8 +935,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         float RTIntervalRule = tinyDB.getFloat("RTIntervalRule");
         float LfHfRule = tinyDB.getFloat("LfHfRule");
         float SDSDRule = tinyDB.getFloat("SDSDRule");
-        float LfRule = tinyDB.getFloat("LfRule");
-        float HfRule = tinyDB.getFloat("HfRule");
         float TPRule = tinyDB.getFloat("TPRule");
         float AVNNRule = tinyDB.getFloat("AVNNRule");
         float nLfRule = tinyDB.getFloat("nLfRule");
@@ -973,8 +957,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         float RTIntervalDiff = RTIntervalRule == 0 ? Float.POSITIVE_INFINITY : (RT_distanceMed - RTIntervalRule) / RTIntervalRule;
         float LfHfDiff = LfHfRule == 0 ? Float.POSITIVE_INFINITY : (LfHf - LfHfRule) / LfHfRule;
         float SDSDDiff = SDSDRule == 0 ? Float.POSITIVE_INFINITY : (SDSD - SDSDRule) / SDSDRule;
-        float LfDiff = LfRule == 0 ? Float.POSITIVE_INFINITY : (Lf - LfRule) / LfRule;
-        float HfDiff = HfRule == 0 ? Float.POSITIVE_INFINITY : (Hf - HfRule) / HfRule;
         float TPDiff = TPRule == 0 ? Float.POSITIVE_INFINITY : (TP - TPRule) / TPRule;
         float AVNNDiff = AVNNRule == 0 ? Float.POSITIVE_INFINITY : (AVNN - AVNNRule) / AVNNRule;
         float nLfDiff = nLfRule == 0 ? Float.POSITIVE_INFINITY : (nLf - nLfRule) / nLfRule;
@@ -997,8 +979,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                         "RT距離: %.2f\n" +
                         "LF/HF: %.2f\n" +
                         "SDSD: %.2f\n" +
-                        "LF: %.2f\n" +
-                        "HF: %.2f\n" +
                         "TP: %.2f\n" +
                         "AVNN: %.2f\n" +
                         "nLF: %.2f\n" +
@@ -1009,10 +989,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                         "NN50: %.2f\n" +
                         "CV: %.2f\n",
                 selfDiff, RMedDiff, BPMDiff, RMSSDDiff, SDNNDiff, TMedDiff, halfWidthDiff, RTVoltDiff, RTIntervalDiff,
-                LfHfDiff, SDSDDiff, LfDiff, HfDiff, TPDiff, AVNNDiff, nLfDiff, nHfDiff, SD1Diff, SD2Diff, pNN50Diff, NN50Diff, CVDiff);
+                LfHfDiff, SDSDDiff, TPDiff, AVNNDiff, nLfDiff, nHfDiff, SD1Diff, SD2Diff, pNN50Diff, NN50Diff, CVDiff);
         //ID驗證
         calDiffHex(selfDiff, RMedDiff, BPMDiff, RMSSDDiff, SDNNDiff, TMedDiff, halfWidthDiff, RTVoltDiff, RTIntervalDiff, selfDiffRule,
-                LfHfDiff, SDSDDiff, LfDiff, HfDiff, TPDiff, AVNNDiff, nLfDiff, nHfDiff, SD1Diff, SD2Diff, pNN50Diff, NN50Diff, CVDiff);
+                LfHfDiff, SDSDDiff, TPDiff, AVNNDiff, nLfDiff, nHfDiff, SD1Diff, SD2Diff, pNN50Diff, NN50Diff, CVDiff);
 
         runOnUiThread(() -> txt_Register_values.setText(resultText));
     }
@@ -1036,8 +1016,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         ArrayList<Float> RT_distanceMedList = tinyDB.getListFloat("RT_distanceMedList");
         ArrayList<Float> LfHfList = tinyDB.getListFloat("LfHfList");
         ArrayList<Float> SdsdList = tinyDB.getListFloat("SdsdList");
-        ArrayList<Float> LfList = tinyDB.getListFloat("LfList");
-        ArrayList<Float> HfList = tinyDB.getListFloat("HfList");
         ArrayList<Float> TpList = tinyDB.getListFloat("TpList");
         ArrayList<Float> AvnnList = tinyDB.getListFloat("AvnnList");
         ArrayList<Float> nLfList = tinyDB.getListFloat("nLfList");
@@ -1060,8 +1038,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         float averageRTDistanceMed = findPeaks.calculate3AverageFloat(RT_distanceMedList);
         float averageLfHf = findPeaks.calculate3AverageFloat(LfHfList);
         float averageSDSD = findPeaks.calculate3AverageFloat(SdsdList);
-        float averageLf = findPeaks.calculate3AverageFloat(LfList);
-        float averageHf = findPeaks.calculate3AverageFloat(HfList);
         float averageTP = findPeaks.calculate3AverageFloat(TpList);
         float averageAVNN = findPeaks.calculate3AverageFloat(AvnnList);
         float average_nLf = findPeaks.calculate3AverageFloat(nLfList);
@@ -1076,7 +1052,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             @Override
             public void run() {
                 saveDiffAvgStandardToTinyDB(averageSelf, averageRMed, averageBpm, averageRmssd, averageSdnn, averageTMed, averageHalfWidth, averageRVoltMed, averageRTDistanceMed,
-                        averageLfHf, averageSDSD, averageLf, averageHf, averageTP, averageAVNN, average_nLf, average_nHf, average_SD1, average_SD2, average_pNN50, average_NN50, average_CV);
+                        averageLfHf, averageSDSD, averageTP, averageAVNN, average_nLf, average_nHf, average_SD1, average_SD2, average_pNN50, average_NN50, average_CV);
                 showRegisterStandard();
             }
         });
@@ -1088,7 +1064,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     private void saveDiffAvgStandardToTinyDB(float selfDiff, float RMedDiff, float BpmDiff,
                                              float RmssdDiff, float SdnnDiff, float TMedDiff,
                                              float halfWidthDiff, float RTVoltDiff, float RTInterval,
-                                             float LfHf, float SDSD, float Lf, float Hf, float TP, float AVNN,
+                                             float LfHf, float SDSD, float TP, float AVNN,
                                              float nLf, float nHf, float SD1, float SD2, float pNN50, float NN50, float CV) {
         tinyDB.putFloat("selfDiffRule", selfDiff);
         tinyDB.putFloat("RMedDiffRule", RMedDiff);
@@ -1101,8 +1077,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         tinyDB.putFloat("RTIntervalRule", RTInterval);
         tinyDB.putFloat("LfHfRule", LfHf);
         tinyDB.putFloat("SDSDRule", SDSD);
-        tinyDB.putFloat("LfRule", Lf);
-        tinyDB.putFloat("HfRule", Hf);
         tinyDB.putFloat("TPRule", TP);
         tinyDB.putFloat("AVNNRule", AVNN);
         tinyDB.putFloat("nLfRule", nLf);
@@ -1135,8 +1109,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                             "/R到T距離平均: " + tinyDB.getFloat("RTIntervalRule") +
                             "\nLF/HF平均: " + tinyDB.getFloat("LfHfRule") +
                             "/SDSD平均: " + tinyDB.getFloat("SDSDRule") +
-                            "\nLF平均: " + tinyDB.getFloat("LfRule") +
-                            "/HF平均: " + tinyDB.getFloat("HfRule") +
                             "\nTP平均: " + tinyDB.getFloat("TPRule") +
                             "/AVNN平均: " + tinyDB.getFloat("AVNNRule") +
                             "\nnLF平均: " + tinyDB.getFloat("nLfRule") +
@@ -1191,8 +1163,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
     public void calDiffHex(float selfDiffResult, float RMedDiffResult, float BpmDiffResult, float RMSSDDiffResult,
                            float SDNNDiffResult, float TMedDiffResult, float halfWidthDiff, float RTVoltDiffResult,
-                           float RTIntervalResult, float avgOwnDiffAbs, float LfHfDiff, float SDSDDiff, float LfDiff,
-                           float HfDiff, float TPDiff, float AVNNDiff, float nLfDiff, float nHfDiff, float SD1Diff,
+                           float RTIntervalResult, float avgOwnDiffAbs, float LfHfDiff, float SDSDDiff,
+                           float TPDiff, float AVNNDiff, float nLfDiff, float nHfDiff, float SD1Diff,
                            float SD2Diff, float pNN50Diff, float NN50Diff, float CVDiff) {
 
         int scaledValue = (int) abs((selfDiffResult * 1000)); // 將 selfDiffRule 乘以 1000 並轉換成 int
@@ -1215,8 +1187,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         int compareRTInterval = abs(RTIntervalResult) < avgOwnDiffAbs ? 1 : 0;
         int compareLfHf = abs(LfHfDiff) < avgOwnDiffAbs ? 1 : 0;
         int compareSDSD = abs(SDSDDiff) < avgOwnDiffAbs ? 1 : 0;
-        int compareLf = abs(LfDiff) < avgOwnDiffAbs ? 1 : 0;
-        int compareHf = abs(HfDiff) < avgOwnDiffAbs ? 1 : 0;
         int compareTP = abs(TPDiff) < avgOwnDiffAbs ? 1 : 0;
         int compareAVNN = abs(AVNNDiff) < avgOwnDiffAbs ? 1 : 0;
         int comparenLf = abs(nLfDiff) < avgOwnDiffAbs ? 1 : 0;
@@ -1231,18 +1201,31 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 + compareRMSSDDiff + " " + compareSDNNDiff + " " + compareTMedDiff + " "
                 + compareRTVoltDiff + " " + compareRTInterval);
         // 計算自己的心臟代號
-        int isYourself = (int) (compareRMedDiff * Math.pow(2, 20) + compareBpmDiff * Math.pow(2, 19) + compareRMSSDDiff * Math.pow(2, 18) +
-                compareSDNNDiff * Math.pow(2, 17) + compareTMedDiff * Math.pow(2, 16) + compareHalfWidthDiff * Math.pow(2, 15) +
-                compareRTVoltDiff * Math.pow(2, 14) + compareRTInterval * Math.pow(2, 13) + compareLfHf * Math.pow(2, 12) +
-                compareSDSD * Math.pow(2, 11) + compareLf * Math.pow(2, 10) + compareHf * Math.pow(2, 9) +
-                compareTP * Math.pow(2, 8) + compareAVNN * Math.pow(2, 7) + comparenLf * Math.pow(2, 6) +
-                comparenHf * Math.pow(2, 5) + compareSD1 * Math.pow(2, 4) + compareSD2 * Math.pow(2, 3) +
-                comparepNN50 * Math.pow(2, 2) + compareNN50 * Math.pow(2, 1) + compareCV * Math.pow(2, 0));
-        // 2097151
+        int isYourself = (int) (
+                compareRMedDiff * Math.pow(2, 18) +
+                        compareBpmDiff * Math.pow(2, 17) +
+                        compareRMSSDDiff * Math.pow(2, 16) +
+                        compareSDNNDiff * Math.pow(2, 15) +
+                        compareTMedDiff * Math.pow(2, 14) +
+                        compareHalfWidthDiff * Math.pow(2, 13) +
+                        compareRTVoltDiff * Math.pow(2, 12) +
+                        compareRTInterval * Math.pow(2, 11) +
+                        compareLfHf * Math.pow(2, 10) +
+                        compareSDSD * Math.pow(2, 9) +
+                        compareTP * Math.pow(2, 8) +
+                        compareAVNN * Math.pow(2, 7) +
+                        comparenLf * Math.pow(2, 6) +
+                        comparenHf * Math.pow(2, 5) +
+                        compareSD1 * Math.pow(2, 4) +
+                        compareSD2 * Math.pow(2, 3) +
+                        comparepNN50 * Math.pow(2, 2) +
+                        compareNN50 * Math.pow(2, 1) +
+                        compareCV * Math.pow(2, 0));
+
         String R3Hex = String.format("%06X", isYourself);
         // 將二進制數字轉換成十進制數字
         String hexResult = ownDiffHex + R3Hex; // 將 ownDiffHex 和 R3Hex 組合成一個新的十六進制數字
-        String isYou = isYourself > 1048576 ? "本人" : "非本人";
+        String isYou = isYourself > 524287 ? "本人" : "非本人";
 
         txt_checkID_result.setText("心臟代號: " + hexResult + "/" + isYou);
         Log.d("hhhh", "ownDiffHex: " + ownDiffHex + "\nR3Hex: " + R3Hex + "\nhexResult: " + hexResult + "\n" + R3Hex);
@@ -1288,8 +1271,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
         avgLfHfList = tinyDB.getListFloat("LfHfList");
         avgSdsdList = tinyDB.getListFloat("SdsdList");
-        avgLfList = tinyDB.getListFloat("LfList");
-        avgHfList = tinyDB.getListFloat("HfList");
         avgTpList = tinyDB.getListFloat("TpList");
         avgAvnnList = tinyDB.getListFloat("AvnnList");
         avgSd1List = tinyDB.getListFloat("Sd1List");
@@ -1322,6 +1303,17 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         avgT_MedList.clear();
         avgRT_VoltMedList.clear();
         avgRT_IntervalMedList.clear();
+
+        avgLfHfList.clear();
+        avgSdsdList.clear();
+        avgTpList.clear();
+        avgAvnnList.clear();
+        avgSd1List.clear();
+        avgSd2List.clear();
+        avg_pNN50List.clear();
+        avgNN50List.clear();
+        avgCvList.clear();
+
         // 將註冊標準值清空並保存到 TinyDB
         saveMeasureResultsArrayToTinyDB();
     }

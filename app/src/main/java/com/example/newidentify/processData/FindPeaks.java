@@ -286,13 +286,13 @@ public class FindPeaks extends Thread {
         for (int i = 0; i < rWaveIndices.size() - 1; i++) {
             rrIntervalsArrayList.add((rWaveIndices.get(i + 1)) - rWaveIndices.get(i));
         }
-        rrIntervals.addAll(rrIntervalsArrayList);
-//        double medianRR = ecgMath.calculateMedianDouble(rrIntervalsArrayList);
-//        for (int rrInterval : rrIntervalsArrayList) {
-//            if (rrInterval <= medianRR) {
-//                rrIntervals.add(rrInterval);
-//            }
-//        }
+//        rrIntervals.addAll(rrIntervalsArrayList);
+        double medianRR = ecgMath.calculateMedianDouble(rrIntervalsArrayList);
+        for (int rrInterval : rrIntervalsArrayList) {
+            if (rrInterval <= medianRR) {
+                rrIntervals.add(rrInterval);
+            }
+        }
     }
 
     /**
