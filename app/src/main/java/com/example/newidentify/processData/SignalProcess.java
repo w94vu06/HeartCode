@@ -5,9 +5,7 @@ import static com.example.newidentify.MainActivity.global_activity;
 
 import android.graphics.Color;
 
-import com.example.newidentify.MainActivity;
-import com.example.newidentify.Util.ChartSetting;
-import com.example.newidentify.Util.TinyDB;
+import com.example.newidentify.util.ChartSetting;
 import com.github.mikephil.charting.data.Entry;
 
 import java.util.ArrayList;
@@ -124,25 +122,36 @@ public class SignalProcess extends Thread {
         }
     }
 
-    public float calDiffSelf(Float[] floats, List<Integer> R_index) {
-        List<Float> df1 = getReduceRR100(Arrays.asList(floats), R_index.get(10), R_index.get(12));
-        List<Float> df2 = getReduceRR100(Arrays.asList(floats), R_index.get(3), R_index.get(5));
-        List<Float> df3 = getReduceRR100(Arrays.asList(floats), R_index.get(6), R_index.get(8));
-        List<Float> df4 = getReduceRR100(Arrays.asList(floats), R_index.get(8), R_index.get(10));
+    public float calDiffSelf(ArrayList<Float> floats, List<Integer> R_index) {
+    List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
+    List<Float> df2 = getReduceRR100(floats, R_index.get(3), R_index.get(5));
+    List<Float> df3 = getReduceRR100(floats, R_index.get(6), R_index.get(8));
+    List<Float> df4 = getReduceRR100(floats, R_index.get(8), R_index.get(10));
 
-        float diff12 = calMidDiff(df1, df2);
-        float diff13 = calMidDiff(df1, df3);
-        float diff14 = calMidDiff(df1, df4);
-        float diff23 = calMidDiff(df2, df3);
+    float diff12 = calMidDiff(df1, df2);
+    float diff13 = calMidDiff(df1, df3);
+    float diff14 = calMidDiff(df1, df4);
+    float diff23 = calMidDiff(df2, df3);
 
-        float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
+    float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
 
-        ChartSetting chartSetting = new ChartSetting();
-        global_activity.runOnUiThread(() -> {
-            chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
-        });
+    ChartSetting chartSetting = new ChartSetting();
+    global_activity.runOnUiThread(() -> {
+        chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
+    });
 
-        return diffSelf;
+    return diffSelf;
+}
+
+    public double[] convertFloatsToDoubles(ArrayList<Float> input) {
+        if (input == null) {
+            return null; // 或處理null的情況
+        }
+        double[] output = new double[input.size()];
+        for (int i = 0; i < input.size(); i++) {
+            output[i] = input.get(i); // 自動將float轉換為double
+        }
+        return output;
     }
 
 }

@@ -1,9 +1,8 @@
-package com.example.newidentify.Util;
+package com.example.newidentify.util;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.StrictMode;
@@ -13,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class FileMaker {
 
@@ -106,7 +107,7 @@ public class FileMaker {
         }).start();
     }//makeCSV
 
-    public void makeCSVFloatArray( Float[] floats, String fileName) {
+    public void makeCSVFloatArray(Float[] floats, String fileName) {
         new Thread(() -> {
             /** 檔名 */
             String date = new SimpleDateFormat("yyyyMMddhhmmss",
@@ -207,7 +208,7 @@ public class FileMaker {
         }).start();
     }
 
-    public void writeRecordToFile(ArrayList<String> strings) {
+    public void writeRecordToFile(List<Map<String, Double>> strings) {
         String TAG = "writeRecordToFile";
         new Thread(() -> {
             String folderName = "revlis_record";
@@ -223,7 +224,10 @@ public class FileMaker {
             }
 
             /** 檔名 */
-            String fileName = "revlis_record_rv.csv";
+            String date = new SimpleDateFormat("yyyyMMddhhmmss",
+                    Locale.getDefault()).format(System.currentTimeMillis());
+
+            String fileName = date + "_revlis_record.csv";
             String filePath = directoryPath + File.separator + fileName;
             File file = new File(filePath);
 
@@ -234,31 +238,67 @@ public class FileMaker {
                     //寫入UTF-8 BOM
                     writer.write('\ufeff');
                     String[] title = {
-                            "檔名", // Time
-                            "自己當下差異度", // own_diff
-                            "與註冊時差異度", // regi_diff
-                            "R電壓中位數", // RV-med
-                            "心率",
-                            "RMSSD" ,
-                            "SDNN",
-                            "T電壓中位數", // TV-med
-                            "半高寬", // avg-halfWidth
-                            "RT電壓差", // RT-VDiff
-                            "RT距離", // RT-Distance
-                            "心臟代號",// HeartCode
-                            "是否為本人",// isYou
-                            "閥值"
+                            "狀態", // Time
+                            "bpm",
+                            "ibi",
+                            "sdnn",
+                            "sdsd",
+                            "rmssd",
+                            "pnn20",
+                            "pnn50",
+                            "hr_mad",
+                            "sd1",
+                            "sd2",
+                            "s",
+                            "sd1/sd2",
+                            "breathingrate",
+                            "DiffSelf",
+                            "R_Med",
+                            "HalfWidth"
                     };
                     /** 寫入標題 */
                     writer.write(String.join(",", title) + "\n");
                 }
                 /** 寫入資料 */
-                writer.write(String.join(",", strings) + "\n");
-
+                // Write data
+//                for (int i = 0; i < dataLists.size(); i++) {
+//                    Map<String, Double> vector = dataLists.get(i);
+//                    writer.write(states[i] + ",");
+//                    for (String header : headers) {
+//                        if (!header.equals("狀態")) { // Skip the state header
+//                            writer.write(vector.get(header) + ",");
+//                        }
+//                    }
+//                    writer.write("\n");
+//                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    public void writeVectorsToCSV(List<Map<String, Double>> dataLists, String filePath) {
+        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "s", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth"};
+        String[] states = {"regi1", "regi2", "regi3", "login"};
+
+        try (FileWriter writer = new FileWriter(filePath)) {
+            // Write headers
+            writer.write(String.join(",", headers) + "\n");
+
+            // Write data
+            for (int i = 0; i < dataLists.size(); i++) {
+                Map<String, Double> vector = dataLists.get(i);
+                writer.write(states[i] + ",");
+                for (String header : headers) {
+                    if (!header.equals("狀態")) { // Skip the state header
+                        writer.write(vector.get(header) + ",");
+                    }
+                }
+                writer.write("\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void migrateAndDeleteOldRecordFile() {

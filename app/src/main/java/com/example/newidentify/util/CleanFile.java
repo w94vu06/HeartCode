@@ -1,4 +1,4 @@
-package com.example.newidentify.Util;
+package com.example.newidentify.util;
 
 import java.io.File;
 

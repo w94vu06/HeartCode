@@ -2,7 +2,15 @@ package com.example.newidentify.processData;
 
 import android.util.Log;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -11,7 +19,7 @@ import java.util.List;
 public class DecodeCha extends Thread {
     String filePath;
     CellData cell;
-    public ArrayList<Float> finalCHAData = new ArrayList();
+    public ArrayList<Float> rawEcgSignal = new ArrayList<>();
     private static final String TAG = "DecodeCha";
 
     //處理CHA
@@ -30,8 +38,8 @@ public class DecodeCha extends Thread {
         try {
             int x = 64;
             char[] a = new char[32 * 1024 * 1024];
-            int cha_size = Lcnd.len(filePath, a);
-            byte[] content = Lcnd.readFromByteFile(filePath);
+            int cha_size =len(filePath, a);
+            byte[] content = readFromByteFile(filePath);
             /** Lead1 */
             ArrayList CHA_LI_dataNum = new ArrayList();
             ArrayList CHA_LI_data16 = new ArrayList();
@@ -91,10 +99,12 @@ public class DecodeCha extends Thread {
                 floatData.add(Float.valueOf(sampleValue.get(i)));
                 floatData.set(i, (float) (((k - 2048) * 5) * 0.001));
             }
-            if (!floatData.isEmpty()) {
-                finalCHAData.addAll(floatData);
+
+            if (floatData.size() > 4000) {
+                List<Float> subList = floatData.subList(4000, floatData.size());
+                rawEcgSignal.addAll(subList);
             } else {
-                Log.e(TAG, "finalCHAData: size is 0");
+                System.out.println("floatData的長度小於4000，沒有足夠的資料添加。");
             }
 
         } catch (Exception e) {
@@ -142,5 +152,45 @@ public class DecodeCha extends Thread {
             dataV.add(dat);
         }
         cell = new CellData(len, newCell, spv, dataV);
+    }
+
+    public static int len (String path, char[] a){
+        File f = new File(path);
+        try {
+            FileInputStream fs = new FileInputStream(f);
+            DataInputStream in = new DataInputStream(fs);
+            InputStreamReader isr = new InputStreamReader(in, StandardCharsets.ISO_8859_1);
+            BufferedReader br = new BufferedReader(isr);
+            int length;
+            length = br.read(a,0,32*1024*1024);
+            br.close();
+            isr.close();
+            in.close();
+            fs.close();
+            return length;
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public static byte[] readFromByteFile(String pathname){
+        File filename = new File(pathname);
+        try{
+            BufferedInputStream in = new BufferedInputStream(new FileInputStream(filename));
+            ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
+            byte[] temp = new byte[1024];
+            int size = 0;
+            while((size = in.read(temp)) != -1){
+                out.write(temp, 0, size);
+            }
+            in.close();
+            byte[] content = out.toByteArray();
+            return content;
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+        byte[] a = new byte[1024];
+        return a;
     }
 }

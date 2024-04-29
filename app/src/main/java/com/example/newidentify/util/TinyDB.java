@@ -19,7 +19,7 @@
  *  and unicode 2017 that are used for separating the items in a list.
  */
 
-package com.example.newidentify.Util;
+package com.example.newidentify.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -315,6 +315,20 @@ public class TinyDB {
         return new ArrayList<String>(Arrays.asList(TextUtils.split(preferences.getString(key, ""), "‚‗‚")));
     }
 
+    public ArrayList<ArrayList<String>> getListOfListString(String key) {
+        // 先按外層分隔符分割字符串，得到表示內層列表的字符串陣列
+        String[] encodedList = TextUtils.split(preferences.getString(key, ""), "‗‚‗");
+        ArrayList<ArrayList<String>> listListString = new ArrayList<>();
+        // 每個字符串再按內層分隔符分割，轉換回ArrayList<String>
+        for (String encodedString : encodedList) {
+            listListString.add(new ArrayList<String>(
+                    Arrays.asList(TextUtils.split(encodedString, "‚‗‚"))
+            ));
+        }
+        return listListString;
+    }
+
+
     /**
      * Get boolean value from SharedPreferences at 'key'. If key not found, return false
      * @param key SharedPreferences key
@@ -477,6 +491,20 @@ public class TinyDB {
         String[] myStringList = stringList.toArray(new String[stringList.size()]);
         preferences.edit().putString(key, TextUtils.join("‚‗‚", myStringList)).apply();
     }
+
+    public void putListOfListString(String key, ArrayList<ArrayList<String>> listListString) {
+        checkForNullKey(key);
+        // 每個內層ArrayList轉換為一個以特定分隔符連接的字符串
+        ArrayList<String> stringList = new ArrayList<>();
+        for (ArrayList<String> list : listListString) {
+            String[] myStringList = list.toArray(new String[list.size()]);
+            stringList.add(TextUtils.join("‚‗‚", myStringList));
+        }
+        // 外層列表再次使用不同的分隔符連接成一個字符串
+        String[] resultArray = stringList.toArray(new String[stringList.size()]);
+        preferences.edit().putString(key, TextUtils.join("‗‚‗", resultArray)).apply();
+    }
+
 
     /**
      * Put boolean value into SharedPreferences with 'key' and save

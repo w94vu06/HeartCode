@@ -1,7 +1,6 @@
-package com.example.newidentify.Util;
+package com.example.newidentify.util;
 
 import android.graphics.Color;
-import android.graphics.ColorSpace;
 import android.util.Log;
 
 import com.github.mikephil.charting.charts.LineChart;
@@ -11,7 +10,6 @@ import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +18,20 @@ public class ChartSetting {
 
     int Start = 0;
     int End = 18000;
+
+    static double[] mX = {0.0, 0.0, 0.0, 0.0, 0.0};
+    static double[] mY = {0.0, 0.0, 0.0, 0.0, 0.0};
+    static int[] mStreamBuf = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+    static double[] mAcoef = {0.00001347408952448771,
+            0.00005389635809795083,
+            0.00008084453714692624,
+            0.00005389635809795083,
+            0.00001347408952448771};
+    static double[] mBcoef = {1.00000000000000000000,
+            -3.67172908916193470000,
+            5.06799838673418980000,
+            -3.11596692520174570000,
+            0.71991032729187143000};
 
     public void initchart(LineChart lineChart) {
         // 允許滑動
@@ -112,12 +124,12 @@ public class ChartSetting {
         return dataSet;
     }
 
-    public void markRT(LineChart chart, Float[] ecg_signal_origin, List<Integer> R_index_up, List<Integer> T_index_up, List<Integer> Q_index_up) {
+    public void markRT(LineChart chart, ArrayList<Float> ecg_signal_origin, List<Integer> R_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
-        for (int i = Start; i <= End && i < ecg_signal_origin.length; i++) {
+        for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
             // 將ECG信號的數據點轉換為Entry對象並添加到entries列表，僅限於指定範圍
-            entries.add(new Entry(i, ecg_signal_origin[i]));
+            entries.add(new Entry(i, ecg_signal_origin.get(i)));
         }
 
         LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
@@ -140,26 +152,26 @@ public class ChartSetting {
         lineData.addDataSet(rDataSet);
 
         // 標記T點
-        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
-
-        LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
-        tDataSet.setCircleColor(Color.BLUE);
-        tDataSet.setCircleRadius(6f);
-        tDataSet.setDrawCircles(true); // 設置畫圓點
-        tDataSet.setDrawValues(false);
-        tDataSet.setColor(Color.WHITE);
-        lineData.addDataSet(tDataSet);
+//        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
+//
+//        LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
+//        tDataSet.setCircleColor(Color.BLUE);
+//        tDataSet.setCircleRadius(6f);
+//        tDataSet.setDrawCircles(true); // 設置畫圓點
+//        tDataSet.setDrawValues(false);
+//        tDataSet.setColor(Color.TRANSPARENT);
+//        lineData.addDataSet(tDataSet);
 
         // 標記Q點
-        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
-
-        LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
-        qDataSet.setCircleColor(Color.GREEN);
-        qDataSet.setCircleRadius(6f);
-        qDataSet.setDrawCircles(true); // 設置畫圓點
-        qDataSet.setDrawValues(false);
-        qDataSet.setColor(Color.WHITE);
-        lineData.addDataSet(qDataSet);
+//        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
+//
+//        LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
+//        qDataSet.setCircleColor(Color.GREEN);
+//        qDataSet.setCircleRadius(6f);
+//        qDataSet.setDrawCircles(true); // 設置畫圓點
+//        qDataSet.setDrawValues(false);
+//        qDataSet.setColor(Color.TRANSPARENT);
+//        lineData.addDataSet(qDataSet);
 
 
         //將LineData對象設定給圖表並刷新
@@ -181,49 +193,14 @@ public class ChartSetting {
         chart.invalidate();
     }
 
-    private List<Entry> filterPointsInRange(List<Integer> indices, Float[] data, int start, int end) {
+    private List<Entry> filterPointsInRange(List<Integer> indices, ArrayList<Float> data, int start, int end) {
         List<Entry> entries = new ArrayList<>();
         for (int index : indices) {
-            if (index >= start && index <= end && index < data.length) {
-                entries.add(new Entry(index, data[index]));
+            if (index >= start && index <= end && index < data.size()) {
+                entries.add(new Entry(index, data.get(index)));
             }
         }
         return entries;
-    }
-
-    public void lineChart_JDSP(double[] signal, int[] peaks, LineChart chart) {
-        List<Entry> entries = new ArrayList<>();
-        for (int i = 0; i < signal.length; i++) {
-            entries.add(new Entry(i, (float) signal[i]));
-        }
-
-        LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
-        dataSet.setColor(Color.BLACK);
-        dataSet.setValueTextColor(Color.BLACK);
-        dataSet.setDrawCircles(false); // 不繪製每個點的圓圈
-        dataSet.setDrawValues(false); // 不繪製點的值
-
-        List<Entry> peakEntries = new ArrayList<>();
-        for (int peakIndex : peaks) {
-            peakEntries.add(new Entry(peakIndex, (float) signal[peakIndex]));
-        }
-
-        LineDataSet peakDataSet = new LineDataSet(peakEntries, "Peaks");
-        peakDataSet.setCircleColor(Color.RED);
-        peakDataSet.setCircleRadius(6f);
-        peakDataSet.setDrawCircleHole(false);
-        peakDataSet.setDrawCircles(true);
-        peakDataSet.setDrawValues(false);
-
-        // 將資料集新增至圖表
-        List<ILineDataSet> dataSets = new ArrayList<>();
-        dataSets.add(dataSet);
-        dataSets.add(peakDataSet);
-
-        LineData lineData = new LineData(dataSets);
-
-        chart.setData(lineData);
-        chart.invalidate(); // 刷新圖表
     }
 
     public static double Butterworth(ArrayList<Double> indata) {
@@ -280,5 +257,25 @@ public class ChartSetting {
             Log.d("xxxxx", "exexexex = " + ex);
             return indata.get(indata.size() - 1);
         }
+    }
+
+
+    public static int getStreamLP(int NewSample) {
+        int tmp = 0;
+        for (int array = 4; array >= 1; array--) {
+            mX[array] = mX[array - 1];
+            mY[array] = mY[array - 1];
+        }
+        mX[0] = (double) (NewSample);
+        mY[0] = mAcoef[0] * mX[0];
+        for (int i = 1; i <= 4; i++) {
+            mY[0] += mAcoef[i] * mX[i] - mBcoef[i] * mY[i];
+        }
+        for (int array = 20; array >= 1; array--) {
+            mStreamBuf[array] = mStreamBuf[array - 1];
+        }
+        mStreamBuf[0] = NewSample;
+        tmp = mStreamBuf[20] + (2000 - (int) (mY[0]));
+        return tmp;
     }
 }
