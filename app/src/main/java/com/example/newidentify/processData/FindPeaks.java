@@ -5,7 +5,6 @@ import android.util.Log;
 import com.example.newidentify.util.EcgMath;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import uk.me.berndporr.iirj.Butterworth;
@@ -242,7 +241,6 @@ public class FindPeaks {
         for (Float x : data) {
             float y = (float) butterworth.filter(x);
             y = (float) butterworth.filter(y);
-//            y = (float) butterworth.filter(y);
             filteredData.add(y);
         }
 

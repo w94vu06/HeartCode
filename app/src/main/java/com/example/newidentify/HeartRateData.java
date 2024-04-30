@@ -21,7 +21,6 @@ public class HeartRateData {
     private double hr_mad;
     private double sd1;
     private double sd2;
-    private double s;
     private double sd1sd2;
     private double breathingrate;
     private double vlf;
@@ -80,9 +79,6 @@ public class HeartRateData {
         return setScale(sd2);
     }
 
-    public double getS() {
-        return setScale(s);
-    }
 
     public double getSd1sd2() {
         return setScale(sd1sd2);
@@ -145,10 +141,6 @@ public class HeartRateData {
 
     public void setSd2(double sd2) {
         this.sd2 = setScale(sd2);
-    }
-
-    public void setS(double s) {
-        this.s = setScale(s);
     }
 
     public void setSd1sd2(double sd1sd2) {

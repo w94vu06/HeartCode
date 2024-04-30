@@ -18,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -277,22 +278,40 @@ public class FileMaker {
         }).start();
     }
 
-    public void writeVectorsToCSV(List<Map<String, Double>> dataLists, String filePath) {
-        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "s", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth"};
+    public void writeVectorsToCSV(List<Double> registerVector1List, List<Double> registerVector2List, List<Double> registerVector3List, List<Double> loginVectorList) {
+        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth","VectorDistance"};
         String[] states = {"regi1", "regi2", "regi3", "login"};
+        String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "vectors_" + timeStamp + ".csv";
+        String filePath = storageDir + "/" + fileName;
 
         try (FileWriter writer = new FileWriter(filePath)) {
             // Write headers
             writer.write(String.join(",", headers) + "\n");
 
-            // Write data
-            for (int i = 0; i < dataLists.size(); i++) {
-                Map<String, Double> vector = dataLists.get(i);
-                writer.write(states[i] + ",");
-                for (String header : headers) {
-                    if (!header.equals("狀態")) { // Skip the state header
-                        writer.write(vector.get(header) + ",");
-                    }
+            // Write data for each state
+            for (int stateIndex = 0; stateIndex < states.length; stateIndex++) {
+                writer.write(states[stateIndex]);
+                List<Double> currentList;
+                switch (stateIndex) {
+                    case 0:
+                        currentList = registerVector1List;
+                        break;
+                    case 1:
+                        currentList = registerVector2List;
+                        break;
+                    case 2:
+                        currentList = registerVector3List;
+                        break;
+                    case 3:
+                        currentList = loginVectorList;
+                        break;
+                    default:
+                        throw new IllegalStateException("Invalid state index: " + stateIndex);
+                }
+                for (Double value : currentList) {
+                    writer.write("," + value);
                 }
                 writer.write("\n");
             }
@@ -300,6 +319,7 @@ public class FileMaker {
             e.printStackTrace();
         }
     }
+
 
     private void migrateAndDeleteOldRecordFile() {
         String TAG = "migrateAndDeleteOldRecordFile";

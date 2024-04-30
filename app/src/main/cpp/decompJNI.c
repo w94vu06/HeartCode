@@ -120,3 +120,7 @@ JNICALL Java_com_example_newidentify_MainActivity_decpEcgFile
 }
 
 
+JNIEXPORT jint JNICALL
+Java_com_example_heartcode_MainActivity_decpEcgFile(JNIEnv *env, jclass clazz, jstring path) {
+    // TODO: implement decpEcgFile()
+}

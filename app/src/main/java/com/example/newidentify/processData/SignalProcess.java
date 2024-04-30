@@ -8,6 +8,11 @@ import android.graphics.Color;
 import com.example.newidentify.util.ChartSetting;
 import com.github.mikephil.charting.data.Entry;
 
+import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.FastFourierTransformer;
+import org.apache.commons.math3.transform.TransformType;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -152,6 +157,42 @@ public class SignalProcess extends Thread {
             output[i] = input.get(i); // 自動將float轉換為double
         }
         return output;
+    }
+
+    public void getFFT(double[] signal) {
+        // 這裡應該是從你的ECG設備或數據集載入的信號數據
+        double sampleRate = 1000.0; // 採樣率
+        signal = Arrays.copyOfRange(signal, 4000, 20384);
+        Complex[] fftResult = performFFT(signal);
+        // 計算每個點的頻率
+        double[] frequency = calculateFrequency(fftResult.length, sampleRate);
+
+        // 查找最大幅度的頻率
+        double maxMagnitude = Double.NEGATIVE_INFINITY;
+        int maxIndex = -1;
+        for (int i = 0; i < fftResult.length; i++) {
+            double magnitude = fftResult[i].abs();
+            if (magnitude > maxMagnitude) {
+                maxMagnitude = magnitude;
+                maxIndex = i;
+            }
+        }
+
+        double dominantFrequency = frequency[maxIndex];
+        System.out.println("主導頻率: " + dominantFrequency + " Hz");
+    }
+
+    public static Complex[] performFFT(double[] signal) {
+        FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
+        return transformer.transform(signal, TransformType.FORWARD);
+    }
+
+    public static double[] calculateFrequency(int n, double sampleRate) {
+        double[] frequency = new double[n];
+        for (int i = 0; i < n; i++) {
+            frequency[i] = i * sampleRate / n;
+        }
+        return frequency;
     }
 
 }

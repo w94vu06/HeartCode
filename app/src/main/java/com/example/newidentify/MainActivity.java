@@ -51,11 +51,8 @@ import com.github.mikephil.charting.listener.BarLineChartTouchListener;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -79,19 +76,13 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     // UI
     private Button btn_detect, btn_clean, btn_stop;
     private TextView txt_result;
-    private TextView txt_average;
     private TextView txt_checkID_status, txt_checkID_result;
-    private TextView txt_Register_values;
 
     // choose Device Dialog
     private Dialog deviceDialog;
 
     // Parameter
     public String fileName = "";
-    public String diffValueSB = "註冊筆";
-    public String heartCode = "註冊筆";
-    public String isSelf = "註冊筆";
-    public float threshold;
     public boolean isFinishRegistered = false; // 是否已註冊
 
     // Used to load the 'newidentify' library on application startup
@@ -206,22 +197,23 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         super.onDestroy();
         // 取得應用程式專用的外部資料夾
         File externalFilesDir = getExternalFilesDir(null);
-        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
-            // 列出所有文件
-            File[] files = externalFilesDir.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    // 檢查檔案名稱是否符合特定的前綴和後綴
-                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
-                        // 刪除符合條件的文件
-                        boolean deleted = file.delete();
-                        if (!deleted) {
-                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
-                        }
-                    }
-                }
-            }
-        }
+        Log.d("dddd", "onDestroy: " + externalFilesDir);
+//        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+//            // 列出所有文件
+//            File[] files = externalFilesDir.listFiles();
+//            if (files != null) {
+//                for (File file : files) {
+//                    // 檢查檔案名稱是否符合特定的前綴和後綴
+//                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
+//                        // 刪除符合條件的文件
+//                        boolean deleted = file.delete();
+//                        if (!deleted) {
+//                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
+//                        }
+//                    }
+//                }
+//            }
+//        }
         if (deviceDialog != null && deviceDialog.isShowing()) {
             deviceDialog.dismiss();
         }
@@ -282,7 +274,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         txt_BleStatus_battery = findViewById(R.id.txt_BleStatus_battery);
         txt_checkID_status = findViewById(R.id.txt_checkID_status);
         txt_checkID_result = findViewById(R.id.txt_checkID_result);
-        txt_Register_values = findViewById(R.id.txt_Register_values);
         initBtn();
     }
 
@@ -302,7 +293,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     ShowToast("已清除註冊檔案");
                     txt_checkID_status.setText("尚未有註冊資料");
                     txt_checkID_result.setText("");
-                    txt_Register_values.setText("");
+
                     cleanRegistrationData();
                     isFinishRegistered = false;
                 });
@@ -464,7 +455,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 oldValue.clear(); // 清除上次的數據
                 txt_checkID_result.setText("");
                 txt_checkID_status.setText("");
-                txt_Register_values.setText("");
 
                 initchart();
             });
@@ -663,7 +653,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             Log.e("EmptyDataList", "dataList有誤");
             return;
         }
-        Log.d("python", "ecg_signal.length: "+ecg_signal.length);
+        Log.d("python", "ecg_signal.length: " + ecg_signal.length);
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -672,9 +662,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 PyObject pyObj = py.getModule("hrv_analysis");
 
                 // 調用 Python 函數並獲取結果
+                PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+                getHRVData(result);
                 try {
-                    PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
-                    getHRVData(result);
+
                 } catch (Exception e) {
                     Log.e("PythonError", e.toString());
                     txt_result.setText("量測失敗");
@@ -706,10 +697,38 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         }.getType());
         List<Double> rValuesList = rValuesMap.get("r_values");
 
+        rPeaksList = filterRPeaks(rPeaksList, 250);
+        rValuesList = findRPeaks(rawEcgSignal, rPeaksList);
+
         assert rPeaksList != null;
         assert rValuesList != null;
 
         calculateValues(rPeaksList, rValuesList);
+    }
+
+    public List<Integer> filterRPeaks(List<Integer> rPeaksList, int minDistance) {
+        List<Integer> filteredRPeaks = new ArrayList<>();
+        int previousRPeak = -1;
+
+        for (Integer rPeak : rPeaksList) {
+            if (previousRPeak == -1 || rPeak - previousRPeak >= minDistance) {
+                filteredRPeaks.add(rPeak);
+                previousRPeak = rPeak;
+            }
+        }
+
+        return filteredRPeaks;
+    }
+
+    //根據R波的位置找到R波的值
+    public List<Double> findRPeaks(ArrayList<Float> rawEcgSignal, List<Integer> rPeaksList) {
+        List<Double> rValuesList = new ArrayList<>();
+        for (int i = 0; i < rawEcgSignal.size(); i++) {
+            if (rPeaksList.contains(i)) {
+                rValuesList.add((double) rawEcgSignal.get(i));
+            }
+        }
+        return rValuesList;
     }
 
     // 計算各項數據
@@ -725,7 +744,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
     public void setRegisterData() {
         if (!isFinishRegistered) {
-            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getHalfWidth() < 100 && heartRateData.getBpm() < 130 && heartRateData.getRmssd() < 100 && heartRateData.getSdnn() < 100) {
+            if (Math.abs(heartRateData.getDiffSelf()) < 1) {
                 addRegisterList();
                 if (registerData.size() == 3) {
                     isFinishRegistered = true;
@@ -764,7 +783,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             jsonObject.put("hr_mad", heartRateData.getHrMad());
             jsonObject.put("sd1", heartRateData.getSd1());
             jsonObject.put("sd2", heartRateData.getSd2());
-            jsonObject.put("s", heartRateData.getS());
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
             jsonObject.put("breathingrate", heartRateData.getBreathingrate());
             jsonObject.put("DiffSelf", heartRateData.getDiffSelf());
@@ -781,9 +799,9 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             registerData.remove(3);
         }
         tinyDB.putListString("registerData", registerData);
+
         Log.d("HRVList", "registerData: " + registerData);
         Log.d("HRVList", "registerData.size: " + registerData.size());
-
     }
 
     public void showDetectOnUI() {
@@ -800,11 +818,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
                     "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
                     "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                    "S: " + String.format("%.2f", heartRateData.getS()) + "/" +
-                    "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "\n" +
-                    "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "/" +
-                    "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "\n" +
-                    "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "/" +
+                    "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
+                    "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
+                    "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
+                    "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
                     "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth())
             );
         });
@@ -825,7 +842,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         Map<String, Double> registerVector1 = dataLists.get(0);
         Map<String, Double> registerVector2 = dataLists.get(1);
         Map<String, Double> registerVector3 = dataLists.get(2);
-        Log.d("registerVector", "registerVector: "+registerVector1);
+
         Map<String, Double> loginVector = dataLists.get(3);
 
         // 計算歐式距離
@@ -834,14 +851,27 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distance3 = calculateEuclideanDistance(registerVector3, loginVector);
 
         // 設定閾值並進行比較
-        double threshold = 7000.0; // 假設的閾值，根據實際需要調整
-        Log.d("distance", "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3);
-        if (distance1 < threshold && distance2 < threshold && distance3 < threshold) {
+        double threshold = 200.0; // 假設的閾值，根據實際需要調整
+        String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
+        Log.d("distance", s);
+        txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, (distance1 + distance2 + distance3) / 3));
+        if ((distance1 + distance2 + distance3) / 3 < threshold) {
             txt_checkID_result.setText("本人");
         } else {
             txt_checkID_result.setText("非本人");
         }
 
+        //get Map value
+        List<Double> registerVector1List = getMapValue(registerVector1);
+        List<Double> registerVector2List = getMapValue(registerVector2);
+        List<Double> registerVector3List = getMapValue(registerVector3);
+        List<Double> loginVectorList = getMapValue(loginVector);
+        registerVector1List.add(distance1);
+        registerVector2List.add(distance2);
+        registerVector3List.add(distance3);
+
+        loginVectorList.add(threshold);
+        fileMaker.writeVectorsToCSV(registerVector1List, registerVector2List, registerVector3List, loginVectorList);
         keepListIsThree(registerData, 3);
         tinyDB.putListString("registerData", registerData);
     }
@@ -849,18 +879,33 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     public double calculateEuclideanDistance(Map<String, Double> vector1, Map<String, Double> vector2) {
         double sum = 0.0;
         for (String key : vector1.keySet()) {
-            double v1 = vector1.get(key);
-            double v2 = vector2.get(key);
-            sum += Math.pow(v1 - v2, 2);
+            Double v1 = vector1.get(key);
+            Double v2 = vector2.get(key);
+            if (v1 != null && v2 != null) {
+                sum += Math.pow(v1 - v2, 2);
+                Log.d("verity", key + ": v1 - v2: " + v1 + " - " + v2 + " = " + Math.pow(v1 - v2, 2) + " sum: " + sum);
+            } else {
+                Log.d("calculateEuclideanDistance", "calculateEuclideanDistance: " + key + " is null");
+            }
         }
         return Math.sqrt(sum);
     }
 
     public void keepListIsThree(List<?> list, int size) {
         while (list.size() > size) {
-            Log.d("keep", "keepListIsThree: "+list.size());
+            Log.d("keep", "keepListIsThree: " + list.size());
             list.remove(list.size() - 1);
         }
+    }
+
+    public List<Double> getMapValue(Map<String, Double> map) {
+        List<Double> valueList = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : map.entrySet()) {
+            String key = entry.getKey();
+            Double value = entry.getValue();
+            valueList.add(value);
+        }
+        return valueList;
     }
 
     public void recordOutputToCSV(String finalResult) {
