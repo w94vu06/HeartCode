@@ -250,11 +250,8 @@ public class ChartSetting {
             for (int p = 0; p < dF2; p++) {
                 data.add(DatZt[p]);
             }
-
-
             return data.get(data.size() - 1);
         } catch (Exception ex) {
-            Log.d("xxxxx", "exexexex = " + ex);
             return indata.get(indata.size() - 1);
         }
     }

@@ -75,7 +75,6 @@ public class FindPeaks {
 
     public void findTWavePositions(List<Integer> rWaveIndices, ArrayList<Float> ecgSignal) {
         if (rWaveIndices.size() < 2) {
-            Log.d(TAG, "findTWavePositions: R波数量不足，无法计算T波");
             return;
         }
 
@@ -240,7 +239,7 @@ public class FindPeaks {
         List<Float> filteredData = new ArrayList<>(data.size());
         for (Float x : data) {
             float y = (float) butterworth.filter(x);
-            y = (float) butterworth.filter(y);
+//            y = (float) butterworth.filter(y);
             filteredData.add(y);
         }
 

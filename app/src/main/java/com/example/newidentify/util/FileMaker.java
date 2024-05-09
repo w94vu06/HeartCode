@@ -218,10 +218,7 @@ public class FileMaker {
             File directory = new File(directoryPath);
             if (!directory.exists()) {
                 boolean result = directory.mkdirs(); // 嘗試建立目錄
-                if (!result) {
-                    // 目錄建立失敗的處理
-                    Log.d(TAG, "Error: 無法建立資料夾" + directoryPath);
-                }
+                // 目錄建立失敗的處理
             }
 
             /** 檔名 */
@@ -255,7 +252,8 @@ public class FileMaker {
                             "breathingrate",
                             "DiffSelf",
                             "R_Med",
-                            "HalfWidth"
+                            "HalfWidth",
+                            "threshold"
                     };
                     /** 寫入標題 */
                     writer.write(String.join(",", title) + "\n");
@@ -279,7 +277,7 @@ public class FileMaker {
     }
 
     public void writeVectorsToCSV(List<Double> registerVector1List, List<Double> registerVector2List, List<Double> registerVector3List, List<Double> loginVectorList) {
-        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth","VectorDistance"};
+        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth","VectorDistance","threshold"};
         String[] states = {"regi1", "regi2", "regi3", "login"};
         String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());
@@ -355,16 +353,11 @@ public class FileMaker {
                     writer.write(line + "\n"); // 寫入新文件
                 }
 
-                // 資料遷移完成後刪除原文件
-                if (!oldFile.delete()) {
-                    Log.d(TAG, "Failed to delete old record file: " + oldFilePath);
-                }
-
             } catch (IOException e) {
                 Log.e(TAG, "Error migrating record file", e);
             }
         } else {
-            Log.d(TAG, "Old record file does not exist: " + oldFilePath);
+
         }
     }
 

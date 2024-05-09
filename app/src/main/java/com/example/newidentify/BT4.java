@@ -55,8 +55,6 @@ public class BT4 extends Service {
         this.global_activity = activity;
     }
 
-    public String bluetooth_Tag = "wwwww";
-
     public final static String BLE_CONNECTED = "BLE_CONNECTED";
     public final static String BLE_TRY_CONNECT = "BLE_TRY_CONNECT";
     public final static String BLE_DISCONNECTED = "BLE_DISCONNECTED";
@@ -104,10 +102,8 @@ public class BT4 extends Service {
         if (permission != 0) {
             ActivityCompat.requestPermissions(global_activity, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, 350);
         } else {
-            Log.d(bluetooth_Tag, "alreadyscan = " + alreadyscan);
             //搜尋
             if (!isConnected) {
-                Log.d(bluetooth_Tag, "isconnect  sss= " + isConnected);
                 startScan();
                 LocationManager locationManager = (LocationManager) global_activity.getSystemService(Context.LOCATION_SERVICE);
                 if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
@@ -119,20 +115,17 @@ public class BT4 extends Service {
     }
 
     public void startScan() {
-        Log.d(bluetooth_Tag, "startScanstartScanOOO");
         mBluetoothManager = (BluetoothManager) global_activity.getSystemService(BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager.getAdapter();
         alreadyscan = true;
         int postms = 0;
         if (!mBluetoothAdapter.isEnabled()) {
-            Log.d(bluetooth_Tag, "enable  bluetooth");
             mBluetoothAdapter.enable();
         } else {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(bluetooth_Tag, "startScanstartScanAAA");
                     mBluetoothAdapter.startLeScan(mLeScanCallback);//開始搜尋BLE設備
                 }
             }, postms);
@@ -154,7 +147,7 @@ public class BT4 extends Service {
                                 String intentAction;
                                 intentAction = BLE_TRY_CONNECT;
                                 broadcastUpdate(intentAction);
-                                Log.d("xxxxx", "搜尋到裝置，連線中");
+
 
                                 newBluetoothDevice = device;
                                 mBluetoothGatt = newBluetoothDevice.connectGatt(global_activity, false, gattCallback);
@@ -178,17 +171,16 @@ public class BT4 extends Service {
                 switch (state) {
                     case BluetoothAdapter.STATE_OFF:
                         //Indicates the local Bluetooth adapter is off.
-                        Log.d("xxxxx", "STATE_OFF");
+
                         break;
 
                     case BluetoothAdapter.STATE_TURNING_ON:
                         //Indicates the local Bluetooth adapter is turning on. However local clients should wait for STATE_ON before attempting to use the adapter.
-                        Log.d("xxxxx", "STATE_TURNING_ON");
+
                         break;
 
                     case BluetoothAdapter.STATE_ON:
                         //Indicates the local Bluetooth adapter is on, and ready for use.
-                        Log.d("xxxxx", "STATE_ON   scan");
 //                        mBluetoothAdapter.startLeScan(mLeScanCallback);//開始搜尋BLE設備
                         global_activity.runOnUiThread(new Runnable() {
                             @Override
@@ -201,7 +193,7 @@ public class BT4 extends Service {
                         break;
                     case BluetoothAdapter.STATE_TURNING_OFF:
                         //Indicates the local Bluetooth adapter is turning off. Local clients should immediately attempt graceful disconnection of any remote links.
-                        Log.d("xxxxx", "STATE_TURNING_OFF");
+
                         break;
                 }
             }
@@ -215,11 +207,10 @@ public class BT4 extends Service {
 
             switch (newState) {
                 case BluetoothProfile.STATE_CONNECTED:
-                    Log.d("xxxxx", "STATE_CONNECTED  isConnect = " + isConnected);
                     mBluetoothGatt.discoverServices();
                     break;
                 case BluetoothProfile.STATE_DISCONNECTED:
-                    Log.d("xxxxx", "STATE_DISCONNECTED");
+
                     mBluetoothAdapter.startLeScan(mLeScanCallback);//開始搜尋BLE設備
                     mBluetoothDevices.clear();
                     isConnected = false;
@@ -227,7 +218,7 @@ public class BT4 extends Service {
                     close();
                     break;
                 default:
-                    Log.d("xxxxx", "STATE_OTHER");
+
             }
         }
 
@@ -240,17 +231,16 @@ public class BT4 extends Service {
                     if (gattCharacteristic.getUuid().toString().equals(UUID_Notify)) {
                         // 把char1 保存起来以方便后面读写数据时使用
                         gattCharacteristic_char6 = gattCharacteristic;
-                        Log.d("xxxxx", "+++++++++UUID_CHAR6");
+
                     }
                     if (gattCharacteristic.getUuid().toString().equals(UUID_Write)) {
-                        Log.d("xxxxx", "+++++++++UUID_Write");
+
                         // 把char1 保存起来以方便后面读写数据时使用
                         gattCharacteristic_write = gattCharacteristic;
                     }
                 }
             }//for
 
-            Log.d("xxxxx", "notify = " + gattCharacteristic_char6.toString());
             mBluetoothGatt.setCharacteristicNotification(gattCharacteristic_char6, true);
             BluetoothGattDescriptor descriptor = gattCharacteristic_char6.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID);
             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
@@ -263,7 +253,6 @@ public class BT4 extends Service {
             global_activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(bluetooth_Tag, "藍芽連接成功");
 //                    txt_BleStatus.setText("已連線");
 
                 }
@@ -284,6 +273,15 @@ public class BT4 extends Service {
             for (int i = 0; i < buffer.length; i++) {
                 Buffer_Array.add(buffer[i]);
             }
+            long lastNotificationTime = 0;
+            long currentTime = System.currentTimeMillis();
+            if (lastNotificationTime != 0) {
+                long interval = currentTime - lastNotificationTime;
+                Log.d("Bluetooth", "Time between notifications: " + interval + " ms");
+            }
+            lastNotificationTime = currentTime;
+            Log.d("time", "onCharacteristicChanged: "+lastNotificationTime);
+
         }
     };
 
@@ -353,7 +351,7 @@ public class BT4 extends Service {
                     } else {
                         retry -= 1;
                         if (retry > 0) {
-                            Log.d("xxxxx", "收取資料失敗,重送  -- 寫入數據");
+
                             wait = 20;
                             Buffer_Array = new ArrayList<Byte>();
                             mBluetoothGatt.writeCharacteristic(gattCharacteristic_write);
@@ -363,7 +361,7 @@ public class BT4 extends Service {
 //                            Message msg = new Message();
 //                            msg.arg1 = 0;
 //                            back_handler.sendMessage(msg);
-                            Log.d("xxxxx", "FailedA");
+
                             close();
                         }
                     }
@@ -375,14 +373,12 @@ public class BT4 extends Service {
                     }
                     retry -= 1;
                     if (retry > 0) {
-                        Log.d("xxxxx", "TimeOut Clear and ReSend Command--寫入數據");
                         wait = 20;
                         Buffer_Array = new ArrayList<Byte>();
                         mBluetoothGatt.writeCharacteristic(gattCharacteristic_write);
                     } else {
                         task.cancel();
                         timer.cancel();
-                        Log.d(bluetooth_Tag, "FailedB");
                         close();
                     }
                 }
@@ -416,7 +412,6 @@ public class BT4 extends Service {
                 @Override
                 public void handleMessage(Message msg2) {
                     ECG_Count = byteArrayToInt(new byte[]{Buffer_Array.get(2)});
-                    Log.d(bluetooth_Tag, "檔案共 = " + ECG_Count);
                     read_handler.sendMessage(new Message());
                 }
             });
@@ -465,21 +460,21 @@ public class BT4 extends Service {
             @Override
             public void handleMessage(Message msg2) {
                 int value = byteArrayToInt(new byte[]{Buffer_Array.get(3), Buffer_Array.get(2)});
-                Log.d(bluetooth_Tag, "batteryPower = " + value);
+//                Log.d(bluetooth_Tag, "batteryPower = " + value);
                 if (value >= 1990) {
-                    Log.d(bluetooth_Tag, "battery100");
+//                    Log.d(bluetooth_Tag, "battery100");
                     Battery_Percent = 100;
                 } else if (value >= 1955 && value < 1990) {
-                    Log.d(bluetooth_Tag, "battery75");
+//                    Log.d(bluetooth_Tag, "battery75");
                     Battery_Percent = 75;
                 } else if (value >= 1920 && value < 1955) {
-                    Log.d(bluetooth_Tag, "battery50");
+//                    Log.d(bluetooth_Tag, "battery50");
                     Battery_Percent = 50;
                 } else if (value >= 1880 && value < 1920) {
-                    Log.d(bluetooth_Tag, "battery25");
+//                    Log.d(bluetooth_Tag, "battery25");
                     Battery_Percent = 25;
                 } else {
-                    Log.d(bluetooth_Tag, "battery0");
+//                    Log.d(bluetooth_Tag, "battery0");
                     Battery_Percent = 0;
                 }
                 read_handler.sendMessage(new Message());
@@ -554,7 +549,7 @@ public class BT4 extends Service {
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(bluetooth_Tag, "已成功送出7次停止");
+//                    Log.d(bluetooth_Tag, "已成功送出7次停止");
                     read_handler.sendMessage(new Message());
                 }
             }, 3000);
@@ -567,7 +562,6 @@ public class BT4 extends Service {
     @SuppressLint("HandlerLeak")
     public void startWave(boolean isRecord, final Handler read_handler) {
         try {
-            Log.d("wwwww", "SSS11111");
             isWave = true;
             final String[] finalTimeNow = {""};
             byte[] outBuf = {-86, 0x10, 0x00, 0x02, 0, 0, -68};
@@ -577,23 +571,15 @@ public class BT4 extends Service {
             writeBLE(outBuf, new Handler() {
                 @Override
                 public void handleMessage(Message msg) {
-                    Log.d("wwwww", "SSS22222");
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
                             wave_array = new ArrayList<Byte>();
-                            Long FirstTime = System.currentTimeMillis() / 1000;
-                            Long StartTime = System.currentTimeMillis() / 1000;
-                            Long EndTime = System.currentTimeMillis() / 1000;
-
                             final int[] wavc30 = {6};
                             int stopc = 1;
                             int stoph = 1;
 
-                            Log.d("wwwww", "SSS33333");
-
                             while (isWave) {
-
                                 try {
                                     //是否有遺漏封包，有遺漏就不畫
                                     while (true) {
@@ -660,14 +646,12 @@ public class BT4 extends Service {
                                     }
                                 }//try
                                 catch (Exception e) {
-                                    Log.d(bluetooth_Tag, "exxxxx = " + e);
                                     e.printStackTrace();
                                 }
                                 SystemClock.sleep(10);
 
 
                             }//while
-                            Log.d(bluetooth_Tag, "EXIT = ");
                         }
                     }).start();
                 }
@@ -720,7 +704,7 @@ public class BT4 extends Service {
             @Override
             public void handleMessage(Message msg2) {
 
-                Log.d(bluetooth_Tag, "finish Open_File");
+//                Log.d(bluetooth_Tag, "finish Open_File");
 
                 file_data = new ArrayList<Byte>();
                 file_index = 0;
@@ -736,7 +720,7 @@ public class BT4 extends Service {
             @Override
             public void handleMessage(Message msg2) {
                 File_Count = byteArrayToInt(new byte[]{Buffer_Array.get(5), Buffer_Array.get(4), Buffer_Array.get(3), Buffer_Array.get(2)});
-                Log.d(bluetooth_Tag, "檔案大小 = " + File_Count);
+//                Log.d(bluetooth_Tag, "檔案大小 = " + File_Count);
                 read_handler.sendMessage(new Message());
             }
         });
@@ -764,7 +748,7 @@ public class BT4 extends Service {
     }
 
     public void close() {
-        Log.d(bluetooth_Tag, "CloseCloseCloseCloseAAA");
+//        Log.d(bluetooth_Tag, "CloseCloseCloseCloseAAA");
         alreadyscan = false;
         isWave = false;
         if (mBluetoothAdapter != null) {

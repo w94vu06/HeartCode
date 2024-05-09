@@ -158,7 +158,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         initObject();//初始化物件
         initDeviceDialog();//裝置選擇Dialog
         checkAndDisplayRegistrationStatus();//檢查註冊狀態
-        Log.d("ssss", "isFinishRegistered: " + isFinishRegistered);
 
         //初始化python環境
         if (!Python.isStarted()) {
@@ -197,7 +196,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         super.onDestroy();
         // 取得應用程式專用的外部資料夾
         File externalFilesDir = getExternalFilesDir(null);
-        Log.d("dddd", "onDestroy: " + externalFilesDir);
+
 //        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
 //            // 列出所有文件
 //            File[] files = externalFilesDir.listFiles();
@@ -333,11 +332,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     bt4.Bluetooth_init();
 
                     deviceDialog.dismiss();
-                    if (bt4.isConnected) {
-                        bt4.ReadBattery(batteryHandler);
-                        txt_BleStatus_battery.setText(bt4.Battery_Percent + "%");
-                        Log.d("bbbb", "onClick: " + bt4.Battery_Percent);
-                    }
+//                    if (bt4.isConnected) {
+//                        bt4.ReadBattery(batteryHandler);
+//                        txt_BleStatus_battery.setText(bt4.Battery_Percent + "%");
+//                    }
 
                 } else if (checkedRadioButtonId == R.id.radioButtonDevice2) {
                     bt4.deviceName = "WTK230";
@@ -367,7 +365,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 350) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d("wwwww", "搜尋設備");
+
             }
         }
     }
@@ -401,6 +399,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     ch2 = bt4.byteArrayToInt(new byte[]{result[4]}) * 128 + bt4.byteArrayToInt(new byte[]{result[5]});
                     ch2 = ch2 * 1.7;
                     int ch4 = getStreamLP((int) ch2);
+
                     if (ch4 >= 2500) {
                         ch4 = 2500;
                     } else if (ch4 <= 1500) {
@@ -417,9 +416,9 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                         chartSet1Entries = temp;
                         oldValue = temp_old;
                     }
-
                     oldValue.add((double) ch4);
 
+                    Log.d("ch4", "run: "+ ch4);
                     double nvalue = (oldValue.get(oldValue.size() - 1));
 
                     if (oldValue.size() > 1) {
@@ -428,6 +427,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     if (oldValue.size() > 110) {
                         Entry chartSet1Entrie = new Entry(chartSet1Entries.size(), (float) nvalue);
                         chartSet1Entries.add(chartSet1Entrie);
+//                        Log.d("drawData", "run: "+nvalue);
                     }
                     chartSet1.setValues(chartSet1Entries);
                     lineChart.setData(new LineData(chartSet1));
@@ -547,17 +547,17 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             @Override
             public void handleMessage(Message msg) {
                 if (step[0] == 0) {
-                    Log.d("wwwww", "讀取檔案大小");
+
                     bt4.File_Size(this);
                 }
 
                 if (step[0] == 1) {
-                    Log.d("wwwww", "打開檔案");
+
                     bt4.Open_File(this);
                 }
 
                 if (step[0] == 2) {
-                    Log.d("wwwww", "讀取檔案");
+
                     bt4.ReadData(this);
                 }
 
@@ -622,10 +622,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         // 根據LP4檔案路徑建立對應的CHA檔案名稱
         String chaFileName = file.getName().replace(".lp4", ".CHA");
         String chaFilePath = new File(file.getParent(), chaFileName).getAbsolutePath();
-
-        Log.d("FilePaths", "LP4 Path: " + tempFilePath);
-        Log.d("FilePaths", "CHA Path: " + chaFilePath);
-
         // 繼續處理CHA檔案，例如讀取和分析
         readCHA(chaFilePath);
     }
@@ -653,7 +649,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             Log.e("EmptyDataList", "dataList有誤");
             return;
         }
-        Log.d("python", "ecg_signal.length: " + ecg_signal.length);
+
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -680,10 +676,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         PyObject r_value = result.asList().get(2);
 
         hrvString = hrv.toString();//將hrv轉為字串
-
-        Log.d("python", "hrv: " + hrv);
-        Log.d("python", "r_peaks: " + r_peaks.toString());
-        Log.d("python", "r_value: " + r_value.toString());
 
         String hrvJsonString = hrv.toString().replaceAll("nan", "null");
 
@@ -799,9 +791,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             registerData.remove(3);
         }
         tinyDB.putListString("registerData", registerData);
-
-        Log.d("HRVList", "registerData: " + registerData);
-        Log.d("HRVList", "registerData.size: " + registerData.size());
     }
 
     public void showDetectOnUI() {
@@ -851,11 +840,13 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distance3 = calculateEuclideanDistance(registerVector3, loginVector);
 
         // 設定閾值並進行比較
-        double threshold = 200.0; // 假設的閾值，根據實際需要調整
+        double threshold = 160.0; // 假設的閾值，根據實際需要調整
         String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
         Log.d("distance", s);
-        txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, (distance1 + distance2 + distance3) / 3));
-        if ((distance1 + distance2 + distance3) / 3 < threshold) {
+        double distance = (distance1 + distance2 + distance3) / 3;
+
+        txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, distance));
+        if (distance < threshold) {
             txt_checkID_result.setText("本人");
         } else {
             txt_checkID_result.setText("非本人");
@@ -867,10 +858,12 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         List<Double> registerVector3List = getMapValue(registerVector3);
         List<Double> loginVectorList = getMapValue(loginVector);
         registerVector1List.add(distance1);
+        registerVector1List.add(threshold);
+
         registerVector2List.add(distance2);
         registerVector3List.add(distance3);
 
-        loginVectorList.add(threshold);
+        loginVectorList.add(distance);
         fileMaker.writeVectorsToCSV(registerVector1List, registerVector2List, registerVector3List, loginVectorList);
         keepListIsThree(registerData, 3);
         tinyDB.putListString("registerData", registerData);
@@ -884,8 +877,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             if (v1 != null && v2 != null) {
                 sum += Math.pow(v1 - v2, 2);
                 Log.d("verity", key + ": v1 - v2: " + v1 + " - " + v2 + " = " + Math.pow(v1 - v2, 2) + " sum: " + sum);
-            } else {
-                Log.d("calculateEuclideanDistance", "calculateEuclideanDistance: " + key + " is null");
             }
         }
         return Math.sqrt(sum);
@@ -964,7 +955,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             // 確保files不為null
             if (files != null) {
                 for (File file : files) {
-                    Log.d("AllCha", ": " + file);
+
                     // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
                     if (file.isFile() && file.getName().endsWith(".CHA")) {
                         // 取得檔案的絕對路徑和檔案名
