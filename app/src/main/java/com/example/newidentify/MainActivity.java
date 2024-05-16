@@ -34,6 +34,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.chaquo.python.PyObject;
+import com.example.newidentify.processData.MFCC;
 import com.example.newidentify.util.ChartSetting;
 import com.example.newidentify.util.CleanFile;
 import com.example.newidentify.util.EcgMath;
@@ -53,6 +54,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -197,22 +199,22 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         // 取得應用程式專用的外部資料夾
         File externalFilesDir = getExternalFilesDir(null);
 
-//        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
-//            // 列出所有文件
-//            File[] files = externalFilesDir.listFiles();
-//            if (files != null) {
-//                for (File file : files) {
-//                    // 檢查檔案名稱是否符合特定的前綴和後綴
-//                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
-//                        // 刪除符合條件的文件
-//                        boolean deleted = file.delete();
-//                        if (!deleted) {
-//                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+            // 列出所有文件
+            File[] files = externalFilesDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    // 檢查檔案名稱是否符合特定的前綴和後綴
+                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
+                        // 刪除符合條件的文件
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
+                        }
+                    }
+                }
+            }
+        }
         if (deviceDialog != null && deviceDialog.isShowing()) {
             deviceDialog.dismiss();
         }
@@ -280,8 +282,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                stopALL();
-                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+                stopALL();
+//                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
         });
         btn_clean.setOnClickListener(new View.OnClickListener() {
@@ -332,10 +334,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     bt4.Bluetooth_init();
 
                     deviceDialog.dismiss();
-//                    if (bt4.isConnected) {
-//                        bt4.ReadBattery(batteryHandler);
-//                        txt_BleStatus_battery.setText(bt4.Battery_Percent + "%");
-//                    }
 
                 } else if (checkedRadioButtonId == R.id.radioButtonDevice2) {
                     bt4.deviceName = "WTK230";
@@ -392,33 +390,46 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             global_activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    String receive = "";
-                    for (int i = 0; i < result.length; i++)
-                        receive += "  " + Integer.toString((result[i] & 0xff) + 0x100, 16).substring(1);
+                    for (int i = 0; i < result.length; i++) ;
                     double ch2 = 0;
                     ch2 = bt4.byteArrayToInt(new byte[]{result[4]}) * 128 + bt4.byteArrayToInt(new byte[]{result[5]});
                     ch2 = ch2 * 1.7;
-                    int ch4 = getStreamLP((int) ch2);
+                    double ch4 = getStreamLP((int) ch2);
 
                     if (ch4 >= 2500) {
                         ch4 = 2500;
-                    } else if (ch4 <= 1500) {
-                        ch4 = 1500;
+                    } else if (ch4 <= 1600) {
+                        ch4 = 1600;
                     }
+
+                    // 計算平均值
+                    double sum = 0;
+                    for (double value : oldValue) {
+                        sum += value;
+                    }
+                    double average = !oldValue.isEmpty() ? sum / oldValue.size() : 0;
+
+                    // 如果ch4 小於平均值 就等於平均值
+                    if (ch4 < average * 0.9) {
+                        ch4 = average * 0.9;
+                    }
+
                     if (chartSet1Entries.size() >= 300) {
                         ArrayList<Entry> temp = new ArrayList<Entry>();
                         ArrayList<Double> temp_old = new ArrayList<Double>();
                         for (int i = 1; i < chartSet1Entries.size(); i++) {
-                            Entry chartSet1Entrie = new Entry(temp.size(), chartSet1Entries.get(i).getY());
-                            temp.add(chartSet1Entrie);
-                            temp_old.add(oldValue.get(i));
+                            if (i < oldValue.size()) {
+                                Entry chartSet1Entrie = new Entry(temp.size(), chartSet1Entries.get(i).getY());
+                                temp.add(chartSet1Entrie);
+                                temp_old.add(oldValue.get(i));
+                            }
                         }
                         chartSet1Entries = temp;
                         oldValue = temp_old;
                     }
+
                     oldValue.add((double) ch4);
 
-                    Log.d("ch4", "run: "+ ch4);
                     double nvalue = (oldValue.get(oldValue.size() - 1));
 
                     if (oldValue.size() > 1) {
@@ -435,14 +446,12 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     lineChart.invalidate();
                 }
             });
+
         } catch (Exception ex) {
 //            Log.d("wwwww", "eeeeeerrr = " + ex.toString());
         }
     }
 
-    /**
-     * 量測與畫圖
-     */
     /**
      * 量測與畫圖
      */
@@ -547,17 +556,14 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             @Override
             public void handleMessage(Message msg) {
                 if (step[0] == 0) {
-
                     bt4.File_Size(this);
                 }
 
                 if (step[0] == 1) {
-
                     bt4.Open_File(this);
                 }
 
                 if (step[0] == 2) {
-
                     bt4.ReadData(this);
                 }
 
@@ -569,6 +575,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                                 processLP4(bt4.file_data);
                             }
                         }).start();
+
                     } else {
                         ShowToast("檔案大小為0");
                     }
@@ -639,7 +646,28 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = findPeaks.filedData(decodeCha.rawEcgSignal);
-                calculateWithPython(ecgMath.arrayListFloatToDoubleArray(rawEcgSignal));
+
+//                fileMaker.makeCSVFloatArrayList(rawEcgSignal, "rawEcgSignal.csv");
+
+//                MFCC mfcc = new MFCC();
+//                //float[] to double[]
+//                double[] ecg_signal = new double[rawEcgSignal.size()];
+//                for (int i = 0; i < rawEcgSignal.size(); i++) {
+//                    ecg_signal[i] = rawEcgSignal.get(i);
+//                }
+//
+//                double[] ecg_signal2 = Arrays.copyOfRange(ecg_signal, 4000, 14000);
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+//                        float[] mfccData = mfcc.process(ecg_signal2);
+//                        Log.d("ffff", "run: " + mfccData.length + "ecg_signal2: " + ecg_signal2.length);
+//                        fileMaker.makeCSVFloat(mfccData, "mfcc.csv");
+                        ShowToast("計算中...");
+                        calculateWithPython(ecgMath.arrayListFloatToDoubleArray(rawEcgSignal));
+                    }
+                }).start();
             }
         }).start();
     }
@@ -654,14 +682,13 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             @Override
             public void run() {
                 // 獲取 Python 實例和模塊
-                Python py = Python.getInstance();
-                PyObject pyObj = py.getModule("hrv_analysis");
-
-                // 調用 Python 函數並獲取結果
-                PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
-                getHRVData(result);
                 try {
+                    Python py = Python.getInstance();
+                    PyObject pyObj = py.getModule("hrv_analysis");
 
+                    // 調用 Python 函數並獲取結果
+                    PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+                    getHRVData(result);
                 } catch (Exception e) {
                     Log.e("PythonError", e.toString());
                     txt_result.setText("量測失敗");
@@ -677,7 +704,9 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
         hrvString = hrv.toString();//將hrv轉為字串
 
-        String hrvJsonString = hrv.toString().replaceAll("nan", "null");
+        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
+
+        Log.d("getHRVData", "getHRVData: " + hrvJsonString);
 
         heartRateData = gson.fromJson(hrvJsonString, HeartRateData.class);
 
@@ -729,8 +758,13 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         heartRateData.setDiffSelf(signalProcess.calDiffSelf(rawEcgSignal, r_indices));
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(findPeaks.calculateHalfWidths(rawEcgSignal, r_indices));
-        chartSetting.markRT(chart_df2, rawEcgSignal, r_indices);
 
+        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
+        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
+        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
+        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
+
+        chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
         setRegisterData();
     }
 
@@ -758,7 +792,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             }
         }
         showDetectOnUI();
-
     }
 
 
@@ -840,10 +873,11 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distance3 = calculateEuclideanDistance(registerVector3, loginVector);
 
         // 設定閾值並進行比較
-        double threshold = 160.0; // 假設的閾值，根據實際需要調整
+        double threshold = 120.0; // 假設的閾值，根據實際需要調整
         String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
         Log.d("distance", s);
         double distance = (distance1 + distance2 + distance3) / 3;
+//        double distance = (distance1 + distance2) / 2;
 
         txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, distance));
         if (distance < threshold) {
@@ -876,7 +910,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             Double v2 = vector2.get(key);
             if (v1 != null && v2 != null) {
                 sum += Math.pow(v1 - v2, 2);
-                Log.d("verity", key + ": v1 - v2: " + v1 + " - " + v2 + " = " + Math.pow(v1 - v2, 2) + " sum: " + sum);
             }
         }
         return Math.sqrt(sum);
@@ -899,24 +932,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         return valueList;
     }
 
-    public void recordOutputToCSV(String finalResult) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ArrayList<String> recordList = new ArrayList<>();
-
-                // 使用 split 方法根據逗號分隔 finalResult 字串
-                String[] results = finalResult.split(",");
-
-                // 將分割後的結果添加到 recordList 中
-                for (String result : results) {
-                    recordList.add(result.trim()); // trim() 移除前後的空白字符
-                }
-
-//                fileMaker.writeRecordToFile(recordList);
-            }
-        }).start();
-    }
 
     public void initchart() {
         chartSetting.initchart(lineChart);
@@ -957,7 +972,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 for (File file : files) {
 
                     // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
-                    if (file.isFile() && file.getName().endsWith(".CHA")) {
+                    if (file.isFile() && file.getName().endsWith(".cha") || file.getName().endsWith(".CHA")) {
                         // 取得檔案的絕對路徑和檔案名
                         String filePath = file.getParent();
                         String fileName = file.getName();

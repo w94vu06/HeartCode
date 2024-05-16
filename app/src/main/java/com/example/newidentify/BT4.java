@@ -273,15 +273,6 @@ public class BT4 extends Service {
             for (int i = 0; i < buffer.length; i++) {
                 Buffer_Array.add(buffer[i]);
             }
-            long lastNotificationTime = 0;
-            long currentTime = System.currentTimeMillis();
-            if (lastNotificationTime != 0) {
-                long interval = currentTime - lastNotificationTime;
-                Log.d("Bluetooth", "Time between notifications: " + interval + " ms");
-            }
-            lastNotificationTime = currentTime;
-            Log.d("time", "onCharacteristicChanged: "+lastNotificationTime);
-
         }
     };
 
@@ -358,10 +349,6 @@ public class BT4 extends Service {
                         } else {
                             task.cancel();
                             timer.cancel();
-//                            Message msg = new Message();
-//                            msg.arg1 = 0;
-//                            back_handler.sendMessage(msg);
-
                             close();
                         }
                     }
@@ -683,7 +670,6 @@ public class BT4 extends Service {
                         String intentAction;
                         intentAction = BLE_READ_FILE;
                         broadcastUpdate(intentAction);
-//                        txt_countDown.setText((file_data.size() * 100 / File_Count) + " %");
                     }
                 });
 
@@ -694,7 +680,6 @@ public class BT4 extends Service {
                 }
             }
         });
-
     }
 
     @SuppressLint("HandlerLeak")

@@ -1,7 +1,6 @@
 package com.example.newidentify.util;
 
 import android.graphics.Color;
-import android.util.Log;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Description;
@@ -124,7 +123,9 @@ public class ChartSetting {
         return dataSet;
     }
 
-    public void markRT(LineChart chart, ArrayList<Float> ecg_signal_origin, List<Integer> R_index_up) {
+    public void markPQRST(LineChart chart, ArrayList<Float> ecg_signal_origin,
+                          List<Integer> P_index_up, List<Integer> Q_index_up,
+                          List<Integer> R_index_up, List<Integer> S_index_up, List<Integer> T_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
         for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
@@ -140,6 +141,27 @@ public class ChartSetting {
 
         LineData lineData = new LineData(dataSet);
 
+        // 標記P點
+        List<Entry> pEntries = filterPointsInRange(P_index_up, ecg_signal_origin, Start, End);
+
+        LineDataSet pDataSet = new LineDataSet(pEntries, "P Points");
+        pDataSet.setCircleColor(Color.YELLOW);
+        pDataSet.setCircleRadius(6f);
+        pDataSet.setDrawCircles(true); // 設置畫圓點
+        pDataSet.setDrawValues(false);
+        pDataSet.setColor(Color.TRANSPARENT);
+        lineData.addDataSet(pDataSet);
+
+//      標記Q點
+        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
+
+        LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
+        qDataSet.setCircleColor(Color.GREEN);
+        qDataSet.setCircleRadius(6f);
+        qDataSet.setDrawCircles(true); // 設置畫圓點
+        qDataSet.setDrawValues(false);
+        qDataSet.setColor(Color.TRANSPARENT);
+        lineData.addDataSet(qDataSet);
 
         // 標記R點
         List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, Start, End);
@@ -151,28 +173,27 @@ public class ChartSetting {
         rDataSet.setDrawValues(false);
         lineData.addDataSet(rDataSet);
 
+        // 標記S點
+        List<Entry> sEntries = filterPointsInRange(S_index_up, ecg_signal_origin, Start, End);
+
+        LineDataSet sDataSet = new LineDataSet(sEntries, "S Points");
+        sDataSet.setCircleColor(Color.CYAN);
+        sDataSet.setCircleRadius(6f);
+        sDataSet.setDrawCircles(true); // 設置畫圓點
+        sDataSet.setDrawValues(false);
+        sDataSet.setColor(Color.TRANSPARENT);
+        lineData.addDataSet(sDataSet);
+
         // 標記T點
-//        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
-//
-//        LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
-//        tDataSet.setCircleColor(Color.BLUE);
-//        tDataSet.setCircleRadius(6f);
-//        tDataSet.setDrawCircles(true); // 設置畫圓點
-//        tDataSet.setDrawValues(false);
-//        tDataSet.setColor(Color.TRANSPARENT);
-//        lineData.addDataSet(tDataSet);
+        List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
 
-        // 標記Q點
-//        List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
-//
-//        LineDataSet qDataSet = new LineDataSet(qEntries, "Q Points");
-//        qDataSet.setCircleColor(Color.GREEN);
-//        qDataSet.setCircleRadius(6f);
-//        qDataSet.setDrawCircles(true); // 設置畫圓點
-//        qDataSet.setDrawValues(false);
-//        qDataSet.setColor(Color.TRANSPARENT);
-//        lineData.addDataSet(qDataSet);
-
+        LineDataSet tDataSet = new LineDataSet(tEntries, "T Points");
+        tDataSet.setCircleColor(Color.BLUE);
+        tDataSet.setCircleRadius(6f);
+        tDataSet.setDrawCircles(true); // 設置畫圓點
+        tDataSet.setDrawValues(false);
+        tDataSet.setColor(Color.TRANSPARENT);
+        lineData.addDataSet(tDataSet);
 
         //將LineData對象設定給圖表並刷新
         chart.setData(lineData);
@@ -186,6 +207,7 @@ public class ChartSetting {
         Description description = new Description();
         description.setText(""); // 將描述設置為空字符串
         chart.setDescription(description);
+
 
         // 隱藏圖例，如果您不希望顯示「ECG Signal」、「R Points」、「T Points」等標籤
         chart.getLegend().setEnabled(false);

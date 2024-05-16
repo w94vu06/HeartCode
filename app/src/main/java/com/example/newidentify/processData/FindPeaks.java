@@ -4,7 +4,10 @@ import android.util.Log;
 
 import com.example.newidentify.util.EcgMath;
 
+import org.apache.commons.math3.stat.descriptive.rank.Median;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import uk.me.berndporr.iirj.Butterworth;
@@ -33,109 +36,149 @@ public class FindPeaks {
             }
         }
 
-        // 進行帶阻濾波處理
-        List<Float> bandStop = (butter_bandStop_filter(dataList, 55, 65, 1000, 1));
+//        // 進行帶阻濾波處理
+//        List<Float> bandStop = (butter_bandStop_filter(dataList, 50, 65, 1000, 1));
+//
+//        // 進行帶通濾波處理
+//        List<Float> floats = (butter_bandpass_filter(bandStop, 1, 40, 1000, 1));
 
-        // 進行帶通濾波處理
-        List<Float> floats = (butter_bandpass_filter(bandStop, 2, 10, 1000, 1));
+        int fs = 1000;
 
-        return (ArrayList<Float>) floats;
+        // 帶通濾波
+        List<Float> bandpassFilteredData = butter_bandpass_filter(dataList, 0.5f, 50f, fs, 2);
+
+        // 帶阻濾波
+        List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 45f, 55f, fs, 2);
+
+        // 高通濾波
+        List<Float> highpassFilteredData = Arrays.asList(butter_highpass_filter(bandstopFilteredData, 0.5f, fs, 2));
+
+        // D通濾波
+        List<Float> lowPassFilteredData = Arrays.asList(butter_lowPass_filter(highpassFilteredData, 50f, fs, 2));
+
+        ArrayList<Float> finalData = new ArrayList<>(lowPassFilteredData);
+
+        return finalData;
     }
 
-//    public void findTWavePositions(List<Integer> rWaveIndices, double[] ecgSignal) {
-//        if (rWaveIndices.size() < 2) {
-//            Log.d(TAG, "findTWavePositions: R波數量不足，無法計算T波");
-//            return;
-//        }
-//
-//        for (int i = 0; i < rWaveIndices.size() - 1; i++) {
-//            int start = rWaveIndices.get(i) + 50;
-//            int end = rWaveIndices.get(i + 1) - 50;
-//            if (start >= ecgSignal.length || end >= ecgSignal.length) {
-//                Log.d(TAG, "findTWavePositions: Index out of bounds");
-//                continue; // Skip this iteration if indices are out of bounds
-//            }
-//
-//            int midPoint = (start + (end - start) / 2) - 50;
-//            double maxBetweenR = Double.NEGATIVE_INFINITY; // Use negative infinity to handle negative values
-//            int tIndex = midPoint;
-//
-//            for (int j = Math.max(midPoint, start); j < end && j < ecgSignal.length; j++) { // Ensure j does not go out of bounds
-//                double value = ecgSignal[j];
-//                if (value > maxBetweenR) {
-//                    maxBetweenR = value;
-//                    tIndex = j;
-//                }
-//            }
-//
-//            tWavePeaks.add((float) maxBetweenR);
-//            tWaveIndices.add(tIndex);
-//        }
-//    }
+    public List<Integer> findPPoints(List<Integer> rWaveIndices, ArrayList<Float> ecgSignal) {
+        List<Integer> tWaveIndices = new ArrayList<>();
 
-    public void findTWavePositions(List<Integer> rWaveIndices, ArrayList<Float> ecgSignal) {
         if (rWaveIndices.size() < 2) {
-            return;
+            System.out.println("findTWavePositions: R波數量不足，無法計算P波");
+            return tWaveIndices;
         }
 
         for (int i = 0; i < rWaveIndices.size() - 1; i++) {
-            int start = rWaveIndices.get(i);
-            int end = rWaveIndices.get(i + 1);
+            int start = rWaveIndices.get(i) + 50;
+            int end = rWaveIndices.get(i + 1) - 50;
             if (start >= ecgSignal.size() || end >= ecgSignal.size()) {
-                Log.d(TAG, "findTWavePositions: Index out of bounds");
-                continue;
+                System.out.println("findPWavePositions: Index out of bounds");
+                continue; // Skip this iteration if indices are out of bounds
             }
 
-            int midPoint = start + (end - start) / 2;
-            int minIndex = start;
-            double minVal = Double.POSITIVE_INFINITY;
-            for (int j = start; j <= midPoint && j < ecgSignal.size(); j++) {
-                double value = ecgSignal.get(j);
-                if (value < minVal) {
-                    minVal = value;
-                    minIndex = j;
-                }
-            }
+            int tIndex = getIndex(ecgSignal, start, end);
 
-            int maxIndex = minIndex;
-            double maxVal = Double.NEGATIVE_INFINITY;
-            for (int j = minIndex; j <= midPoint && j < ecgSignal.size(); j++) {
-                double value = ecgSignal.get(j);
-                if (value > maxVal) {
-                    maxVal = value;
-                    maxIndex = j;
-                }
-            }
-
-            // Log for debugging
-            Log.d(TAG, "R-Wave from " + start + " to " + end + ", Min at " + minIndex + " value " + minVal + ", Max T-Wave at " + maxIndex + " value " + maxVal);
-
-            tWavePeaks.add((float) maxVal);
-            tWaveIndices.add(maxIndex);
+            tWaveIndices.add(tIndex);
         }
+
+        return tWaveIndices;
     }
 
-    public List<Integer> findQWavePositions(List<Integer> rWaveIndices ,double[] ecgSignal) {
-        List<Integer> qWaveIndexes = new ArrayList<>();
-
-        // 對於每個R波索引
-        for (Integer rIndex : rWaveIndices) {
-            int searchStartIndex = Math.max(rIndex - 50, 0); // 假設Q波位於R波前最多50個資料點
-            float minValue = Float.MAX_VALUE;
-            int qIndex = -1;
-
-            // 從R波索引向前搜尋局部最小值
-            for (int i = rIndex; i >= searchStartIndex; i--) {
-                if (ecgSignal[i] < minValue) {
-                    minValue = (float) ecgSignal[i];
+    public List<Integer> findQPoints(List<Float> ecgData, List<Integer> rIndices) {
+        List<Integer> qPoints = new ArrayList<>();
+        for (int rIndex : rIndices) {
+            int qIndex = rIndex;
+            float minVal = ecgData.get(rIndex);
+            for (int i = rIndex - 1; i >= 0; i--) {
+                if (ecgData.get(i) < minVal) {
+                    minVal = ecgData.get(i);
                     qIndex = i;
+                } else {
+                    break; // 找到局部最小值
                 }
             }
-            // 新增找到的Q波索引
-            qWaveIndices.add(qIndex);
+            qPoints.add(qIndex);
+        }
+        return qPoints;
+    }
+
+    public List<Integer> findSPoints(List<Float> ecgData, List<Integer> rIndices) {
+        List<Integer> sPoints = new ArrayList<>();
+        for (int rIndex : rIndices) {
+            int sIndex = rIndex;
+            float minVal = ecgData.get(rIndex);
+            for (int i = rIndex + 1; i < ecgData.size(); i++) {
+                if (ecgData.get(i) < minVal) {
+                    minVal = ecgData.get(i);
+                    sIndex = i;
+                } else {
+                    break; // 找到局部最小值
+                }
+            }
+            sPoints.add(sIndex);
+        }
+        return sPoints;
+    }
+
+    private static int getIndex(ArrayList<Float> ecgSignal, int start, int end) {
+        int midPoint = (start + (end - start) / 2) - 50;
+        double maxBetweenR = Double.NEGATIVE_INFINITY; // Use negative infinity to handle negative values
+        int tIndex = midPoint;
+
+        for (int j = Math.max(midPoint, start); j < end && j < ecgSignal.size(); j++) { // Ensure j does not go out of bounds
+            double value = ecgSignal.get(j);
+            if (value > maxBetweenR) {
+                maxBetweenR = value;
+                tIndex = j;
+            }
+        }
+        return tIndex;
+    }
+
+    public static List<Integer> findTPoints(List<Float> ecgData, List<Integer> rIndices) {
+        List<Integer> tPoints = new ArrayList<>();
+
+        for (int rIndex : rIndices) {
+            int tPointIndex = findTPoint(ecgData, rIndex);
+            tPoints.add(tPointIndex);
+            if (isLocalMaximum(ecgData, tPointIndex, 10)) {
+            }
         }
 
-        return qWaveIndexes;
+        return tPoints;
+    }
+
+    private static int findTPoint(List<Float> ecgData, int rPeakIndex) {
+        int searchStart = rPeakIndex + 40; // R波後20個數據點開始搜索
+        int searchEnd = rPeakIndex + 300;  // R波後200個數據點內結束搜索
+        if (searchEnd > ecgData.size()) {
+            searchEnd = ecgData.size();
+        }
+
+        double maxAmplitude = Double.NEGATIVE_INFINITY;
+        int tPointIndex = -1;
+
+        for (int i = searchStart; i < searchEnd; i++) {
+            if (ecgData.get(i) > maxAmplitude) {
+                maxAmplitude = ecgData.get(i);
+                tPointIndex = i;
+            }
+        }
+
+        return tPointIndex;
+    }
+
+    private static boolean isLocalMaximum(List<Float> ecgData, int index, int range) {
+        int start = Math.max(0, index - range);
+        int end = Math.min(ecgData.size(), index + range);
+
+        for (int i = start; i < end; i++) {
+            if (ecgData.get(i) > ecgData.get(index)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -226,11 +269,34 @@ public class FindPeaks {
         return sum / count;
     }
 
+    public ArrayList<Float> medianFilter(ArrayList<Float> data, int windowSize) {
+        double[] filteredData = new double[data.size()];
+        Median median = new Median();
+
+        for (int i = 0; i < data.size(); i++) {
+            int start = Math.max(0, i - windowSize / 2);
+            int end = Math.min(data.size(), i + windowSize / 2 + 1); // Fixed from data.set() to data.size()
+            double[] window = new double[end - start];
+            for (int j = start; j < end; j++) {
+                window[j - start] = data.get(j); // Convert ArrayList to array before using Arrays.copyOfRange
+            }
+            filteredData[i] = median.evaluate(window);
+        }
+
+        // Convert double array to ArrayList<Float> before returning
+        ArrayList<Float> result = new ArrayList<>();
+        for (double value : filteredData) {
+            result.add((float) value);
+        }
+        return result;
+    }
+
+
     /**
      * 巴特沃斯濾波器
      */
 
-    public List<Float> butter_bandpass_filter(List<Float> data, int lowCut, int highCut, int fs, int order) {
+    public List<Float> butter_bandpass_filter(List<Float> data, float lowCut, float highCut, float fs, int order) {
         Butterworth butterworth = new Butterworth();
         float widthFrequency = highCut - lowCut;
         float centerFrequency = (highCut + lowCut) / 2.0f;
@@ -246,7 +312,7 @@ public class FindPeaks {
         return filteredData;
     }
 
-    public List<Float> butter_bandStop_filter(List<Float> data, int lowCut, int highCut, int fs, int order) {
+    public List<Float> butter_bandStop_filter(List<Float> data, float lowCut, float highCut, float fs, int order) {
         Butterworth butterworth = new Butterworth();
         float widthFrequency = highCut - lowCut;
         float centerFrequency = (highCut + lowCut) / 2;
@@ -259,9 +325,21 @@ public class FindPeaks {
         return floatArray;
     }
 
-    public Float[] butter_highpass_filter(List<Float> data, int cutoffFrequency, int fs, int order) {
+    public Float[] butter_highpass_filter(List<Float> data, float cutoffFrequency, float fs, int order) {
         Butterworth butterworth = new Butterworth();
         butterworth.highPass(order, fs, cutoffFrequency); // 直接使用高通滤波
+        int index = 0;
+        Float[] filteredData = new Float[data.size()];
+        for (float sample : data) {
+            filteredData[index] = (float) butterworth.filter(sample);
+            index++;
+        }
+        return filteredData;
+    }
+
+    public Float[] butter_lowPass_filter(List<Float> data, float cutoffFrequency, float fs, int order) {
+        Butterworth butterworth = new Butterworth();
+        butterworth.lowPass(order, fs, cutoffFrequency); // 直接使用高通滤波
         int index = 0;
         Float[] filteredData = new Float[data.size()];
         for (float sample : data) {

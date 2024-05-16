@@ -30,6 +30,7 @@ android {
 //                    install "nolds>=0.4.1"
                     install "numpy"
                     install "scipy>=1.1.0"
+
                 }
             }
 

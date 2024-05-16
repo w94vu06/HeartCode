@@ -31,7 +31,7 @@ public class FileMaker {
         this.context = context;
     }
 
-    public void makeCSVDouble(ArrayList<Double> doubles, String fileName) {
+    public void makeCSVDoubleArrayList(ArrayList<Double> doubles, String fileName) {
         new Thread(() -> {
             /** 檔名 */
             String[] title = {"Lead2"};
@@ -68,7 +68,43 @@ public class FileMaker {
         }).start();
     }//makeCSV
 
-    public void makeCSVFloat(ArrayList<Float> floats, String fileName) {
+    public void makeCSVFloatArrayList(ArrayList<Float> doubles, String fileName) {
+        new Thread(() -> {
+            /** 檔名 */
+            String[] title = {"Lead2"};
+            StringBuffer csvText = new StringBuffer();
+            for (int i = 0; i < title.length; i++) {
+                csvText.append(title[i] + ",");
+            }
+            /** 內容 */
+            for (int i = 0; i < doubles.size(); i++) {
+                csvText.append("\n" + doubles.get(i));
+            }
+
+            ((Activity) context).runOnUiThread(() -> {
+                try {
+                    StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+                    StrictMode.setVmPolicy(builder.build());
+                    builder.detectFileUriExposure();
+                    FileOutputStream out = context.openFileOutput(fileName, Context.MODE_PRIVATE);
+                    out.write((csvText.toString().getBytes()));
+                    out.close();
+                    File fileLocation = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+                    FileOutputStream fos = new FileOutputStream(fileLocation);
+                    fos.write(csvText.toString().getBytes());
+                    Uri path = Uri.fromFile(fileLocation);
+                    Intent fileIntent = new Intent(Intent.ACTION_SEND);
+                    fileIntent.setType("text/csv");
+                    fileIntent.putExtra(Intent.EXTRA_SUBJECT, fileName);
+                    fileIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    fileIntent.putExtra(Intent.EXTRA_STREAM, path);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }).start();
+    }//makeCSV
+    public void makeCSVFloatArray(float[] floats, String fileName) {
         new Thread(() -> {
             /** 檔名 */
             String date = new SimpleDateFormat("yyyyMMddhhmmss",
@@ -80,8 +116,8 @@ public class FileMaker {
                 csvText.append(title[i] + ",");
             }
             /** 內容 */
-            for (int i = 0; i < floats.size(); i++) {
-                csvText.append("\n" + floats.get(i));
+            for (int i = 0; i < floats.length; i++) {
+                csvText.append("\n" + floats[i]);
             }
 
             ((Activity) context).runOnUiThread(() -> {
