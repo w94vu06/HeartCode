@@ -103,6 +103,31 @@ public class FindPeaks {
         return qPoints;
     }
 
+    public List<Integer> filterRPeaks(List<Integer> rPeaksList, int minDistance) {
+        List<Integer> filteredRPeaks = new ArrayList<>();
+        int previousRPeak = -1;
+
+        for (Integer rPeak : rPeaksList) {
+            if (previousRPeak == -1 || rPeak - previousRPeak >= minDistance) {
+                filteredRPeaks.add(rPeak);
+                previousRPeak = rPeak;
+            }
+        }
+
+        return filteredRPeaks;
+    }
+
+    //根據R波的位置找到R波的值
+    public List<Double> findRPeaks(ArrayList<Float> rawEcgSignal, List<Integer> rPeaksList) {
+        List<Double> rValuesList = new ArrayList<>();
+        for (int i = 0; i < rawEcgSignal.size(); i++) {
+            if (rPeaksList.contains(i)) {
+                rValuesList.add((double) rawEcgSignal.get(i));
+            }
+        }
+        return rValuesList;
+    }
+
     public List<Integer> findSPoints(List<Float> ecgData, List<Integer> rIndices) {
         List<Integer> sPoints = new ArrayList<>();
         for (int rIndex : rIndices) {

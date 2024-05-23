@@ -1,13 +1,5 @@
 package com.example.newidentify;
 
-
-//import static com.example.newidentify.MainActivity.txt_BleStatus;
-//import static com.example.newidentify.MainActivity.DrawChart;
-//import static com.example.newidentify.MainActivity.ShowToast;
-//import static com.example.newidentify.MainActivity.global_activity;
-//import static com.example.newidentify.MainActivity.txt_countDown;
-
-
 import static com.example.newidentify.MainActivity.DrawChart;
 
 import android.Manifest;
@@ -79,7 +71,7 @@ public class BT4 extends Service {
     //判斷是否連線
     public boolean isConnected = false;
     public boolean alreadyscan = false;
-    public boolean isTenSec = false;
+    public boolean isSixSecOver = false;
 
     //BLE
     BluetoothGattCharacteristic gattCharacteristic_char6;
@@ -147,7 +139,6 @@ public class BT4 extends Service {
                                 String intentAction;
                                 intentAction = BLE_TRY_CONNECT;
                                 broadcastUpdate(intentAction);
-
 
                                 newBluetoothDevice = device;
                                 mBluetoothGatt = newBluetoothDevice.connectGatt(global_activity, false, gattCallback);
@@ -323,7 +314,6 @@ public class BT4 extends Service {
         counter = 0;
         size = datalength;
         task = new TimerTask() {
-
             @Override
             public void run() {
                 counter += 1;
@@ -591,7 +581,7 @@ public class BT4 extends Service {
                                                 break;
                                             }
                                         }
-                                        if (isnull || !isTenSec) {
+                                        if (isnull || !isSixSecOver) {
                                             for (int i = 0; i < 7; i++) {
                                                 Buffer_Array.remove(0);
                                             }
@@ -625,7 +615,7 @@ public class BT4 extends Service {
                                                 wave_array.remove(0);
                                                 wave_array.remove(0);
 
-                                                if (valid.equals("aaa0") && isTenSec) {
+                                                if (valid.equals("aaa0") && isSixSecOver) {
                                                     DrawChart(ecgbyte);
                                                 }
                                             }
@@ -765,5 +755,4 @@ public class BT4 extends Service {
         return null;
     }
 }
-
 
