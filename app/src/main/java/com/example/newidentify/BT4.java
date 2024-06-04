@@ -648,11 +648,11 @@ public class BT4 extends Service {
             @Override
             public void handleMessage(Message msg) {
                 file_index = file_index + 2;
-//                Log.d(bluetooth_Tag, "Buffer_Array = " + Buffer_Array.size());
+
                 for (int i = 2; i < 514; i++) {
                     if (file_data.size() < File_Count) {
                         file_data.add(Buffer_Array.get(i));
-                    }
+                                        }
                 }
                 global_activity.runOnUiThread(new Runnable() {
                     @Override
@@ -674,13 +674,9 @@ public class BT4 extends Service {
 
     @SuppressLint("HandlerLeak")
     public void Open_File(final Handler read_handler) {
-
         writeBLE(new byte[]{(byte) 0xaa, 0x24, 0, 0, 0, 0, 0x00}, new Handler() {
             @Override
             public void handleMessage(Message msg2) {
-
-//                Log.d(bluetooth_Tag, "finish Open_File");
-
                 file_data = new ArrayList<Byte>();
                 file_index = 0;
 

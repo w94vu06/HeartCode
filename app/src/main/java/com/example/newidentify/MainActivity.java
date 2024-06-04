@@ -133,6 +133,9 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     private String hrvString;
     private ArrayList<String> registerData = new ArrayList<>();
 
+    public static Python py;
+    public static PyObject pyObj;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -155,17 +158,19 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
-        chart_df2 = findViewById(R.id.chart_df2);
+//        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
         initDeviceDialog();//裝置選擇Dialog
         checkAndDisplayRegistrationStatus();//檢查註冊狀態
 
-        //初始化python環境
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
+
+        py = Python.getInstance();
+        pyObj = py.getModule("hrv_analysis");
     }
 
     @Override
@@ -344,8 +349,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     if (bt4.isConnected) {
                         bt4.ReadBattery(batteryHandler);
                         txt_BleStatus_battery.setText(bt4.Battery_Percent + "%");
-                        Log.d("bbbb", "onClick: " + bt4.Battery_Percent);
-                    }
+                                            }
                     // 處理選中 Device 2 的邏輯
                 } else {
                     // 提示用戶選擇一個裝置
@@ -564,15 +568,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
                 if (step[0] == 3) {
                     if (!bt4.file_data.isEmpty()) {
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                processLP4(bt4.file_data);
-                            }
-                        }).start();
+                        processLP4(bt4.file_data);
 
                     } else {
-                        ShowToast("檔案大小為0");
+                        runOnUiThread(() -> ShowToast("檔案大小為0"));
                     }
                     bt4.Delete_AllRecor(this);
                 }
@@ -645,7 +644,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        ShowToast("計算中...");
                         calculateWithPython(ecgMath.arrayListFloatToDoubleArray(rawEcgSignal));
                     }
                 }).start();
@@ -664,10 +662,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             public void run() {
                 // 獲取 Python 實例和模塊
                 try {
-                    Python py = Python.getInstance();
-                    PyObject pyObj = py.getModule("hrv_analysis");
-
                     // 調用 Python 函數並獲取結果
+                    ShowToast("計算中...");
                     PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
                     getHRVData(result);
                 } catch (Exception e) {
@@ -714,23 +710,23 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     // 計算各項數據
     public void calculateValues(List<Integer> r_indices, List<Double> r_values) {
         Collections.sort(r_indices);
+
         heartRateData.setDiffSelf(signalProcess.calDiffSelf(rawEcgSignal, r_indices));
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(findPeaks.calculateHalfWidths(rawEcgSignal, r_indices));
 
-        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
-        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
-        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
-        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
+//        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
+//        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
+//        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
+//        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
 
-        chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
+//        chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
         setRegisterData();
     }
 
     public void setRegisterData() {
-        Log.d("regi", "setRegisterData: "+Math.abs(heartRateData.getDiffSelf()));
+        Log.d("regi", "setRegisterData: " + Math.abs(heartRateData.getDiffSelf()));
         if (!isFinishRegistered) {
-
             if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 120) {
                 addRegisterList();
                 if (registerData.size() == 3) {
@@ -760,19 +756,19 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         JSONObject jsonObject = new JSONObject();
         try {
             jsonObject.put("bpm", heartRateData.getBpm());
-            jsonObject.put("ibi", heartRateData.getIbi());
+            jsonObject.put("ibi", heartRateData.getIbi() * 2);
             jsonObject.put("sdnn", heartRateData.getSdnn());
             jsonObject.put("sdsd", heartRateData.getSdsd());
             jsonObject.put("rmssd", heartRateData.getRmssd());
             jsonObject.put("pnn20", heartRateData.getPnn20());
             jsonObject.put("pnn50", heartRateData.getPnn50());
-            jsonObject.put("hr_mad", heartRateData.getHrMad());
+            jsonObject.put("hr_mad", heartRateData.getHrMad() * 2);
             jsonObject.put("sd1", heartRateData.getSd1());
-            jsonObject.put("sd2", heartRateData.getSd2());
+            jsonObject.put("sd2", heartRateData.getSd2() * 2);
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
             jsonObject.put("breathingrate", heartRateData.getBreathingrate());
             jsonObject.put("DiffSelf", heartRateData.getDiffSelf());
-            jsonObject.put("R_Med", heartRateData.getR_Med());
+            jsonObject.put("R_Med", heartRateData.getR_Med() * 10);
             jsonObject.put("HalfWidth", heartRateData.getHalfWidth());
 
             // 添加到 registerData
@@ -788,7 +784,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     }
 
     public void showDetectOnUI() {
-
         runOnUiThread(() -> {
             txt_result.setText("當下量測\n" +
                     "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
@@ -838,11 +833,12 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distanceInside1 = calculateEuclideanDistance(registerVector1, registerVector2);
         double distanceInside2 = calculateEuclideanDistance(registerVector2, registerVector3);
         double distanceInside3 = calculateEuclideanDistance(registerVector1, registerVector3);
-        double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3) * 2.5;
+        double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3);
+        Log.d("threshold_ori", "原來的閥值: "+distanceThreshold);
         // 閾值最小為 120，避免過小的閾值導致誤判。
-        if (distanceThreshold < 120) {
-            distanceThreshold = 120;
-        }
+//        if (distanceThreshold < 120) {
+//            distanceThreshold = 120;
+//        }
         double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
         Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
 
