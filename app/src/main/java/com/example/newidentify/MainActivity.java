@@ -205,22 +205,22 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         // 取得應用程式專用的外部資料夾
         File externalFilesDir = getExternalFilesDir(null);
 
-//        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
-//            // 列出所有文件
-//            File[] files = externalFilesDir.listFiles();
-//            if (files != null) {
-//                for (File file : files) {
-//                    // 檢查檔案名稱是否符合特定的前綴和後綴
-//                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_") || file.getName().endsWith(".cha") && file.getName().startsWith("l_")) {
-//                        // 刪除符合條件的文件
-//                        boolean deleted = file.delete();
-//                        if (!deleted) {
-//                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+            // 列出所有文件
+            File[] files = externalFilesDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    // 檢查檔案名稱是否符合特定的前綴和後綴
+                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_")) {
+                        // 刪除符合條件的文件
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
+                        }
+                    }
+                }
+            }
+        }
         if (deviceDialog != null && deviceDialog.isShowing()) {
             deviceDialog.dismiss();
         }
@@ -300,7 +300,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     ShowToast("已清除註冊檔案");
                     txt_checkID_status.setText("尚未有註冊資料");
                     txt_isMe.setText("");
-
+                    txt_checkID_result.setText("");
                     cleanRegistrationData();
                     isFinishRegistered = false;
                 });
@@ -349,7 +349,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     if (bt4.isConnected) {
                         bt4.ReadBattery(batteryHandler);
                         txt_BleStatus_battery.setText(bt4.Battery_Percent + "%");
-                                            }
+                    }
                     // 處理選中 Device 2 的邏輯
                 } else {
                     // 提示用戶選擇一個裝置
@@ -834,11 +834,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distanceInside2 = calculateEuclideanDistance(registerVector2, registerVector3);
         double distanceInside3 = calculateEuclideanDistance(registerVector1, registerVector3);
         double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3);
-        Log.d("threshold_ori", "原來的閥值: "+distanceThreshold);
-        // 閾值最小為 120，避免過小的閾值導致誤判。
-//        if (distanceThreshold < 120) {
-//            distanceThreshold = 120;
-//        }
+        Log.d("threshold_ori", "原來的閥值: " + distanceThreshold);
+
         double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
         Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
 
@@ -851,6 +848,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             txt_isMe.setText("本人");
         } else {
             txt_isMe.setText("非本人");
+        }
+
+        if (Math.abs(loginVector.get("R_Med")) < 50) {
+            txt_isMe.append("振幅過小!!!!");
         }
 
         //get Map value
