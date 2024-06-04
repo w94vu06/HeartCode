@@ -13,7 +13,6 @@
         android:layout_height="wrap_content"
         android:gravity="center">
 
-
         <Button
             android:id="@+id/btn_signUp"
             android:layout_width="wrap_content"
@@ -60,7 +59,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.523" />
+
     </LinearLayout>
+
+    <Space
+        android:layout_width="@dimen/dp_50"
+        android:layout_height="@dimen/dp_50"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v06.04"
+        />
 
 </LinearLayout>
 

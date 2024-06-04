@@ -839,7 +839,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distanceInside2 = calculateEuclideanDistance(registerVector2, registerVector3);
         double distanceInside3 = calculateEuclideanDistance(registerVector1, registerVector3);
         double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3) * 2.5;
-
+        // 閾值最小為 120，避免過小的閾值導致誤判。
+        if (distanceThreshold < 120) {
+            distanceThreshold = 120;
+        }
         double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
         Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
 
