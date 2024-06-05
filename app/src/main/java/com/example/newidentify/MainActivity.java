@@ -71,42 +71,38 @@ import org.json.JSONObject;
 
 
 public class MainActivity extends AppCompatActivity implements FindPeaksCallback {
-    private SharedPreferences preferences;
-    private SharedPreferences.Editor editor;
+    // HeartRateData 物件，用於儲存心率數據
     private HeartRateData heartRateData;
+    // Gson 物件
     private Gson gson = new Gson();
-
-    // UI
-    private Button btn_detect, btn_clean, btn_stop;
-    private TextView txt_result;
-    private TextView txt_checkID_status, txt_checkID_result, txt_isMe;
-
-    // choose Device Dialog
-    private Dialog deviceDialog;
-
-    // Parameter
-    public String fileName = "";
-    public boolean isFinishRegistered = false; // 是否已註冊
-
-    // Used to load the 'newidentify' library on application startup
-    static {
-        System.loadLibrary("newidentify");
-        System.loadLibrary("lp4tocha");
-    }
-
-    // BLE
-    public static Activity global_activity;
-    public static TextView txt_countDown;
-    static BT4 bt4;
+    // TinyDB 物件
     private TinyDB tinyDB;
+
+    // UI 元素
+    private Button btn_detect;
+    private Button btn_clean;
+    private Button btn_stop;
+    private TextView txt_isMe;
+    private TextView txt_result;
+    private TextView txt_checkID_status;
+    private TextView txt_checkID_result;
     public static TextView txt_BleStatus;
     public static TextView txt_BleStatus_battery;
 
+    // 選擇裝置的對話框
+    private Dialog deviceDialog;
 
-    // 畫心電圖使用
-    private Handler measurementHandler = new Handler(Looper.getMainLooper());
+    // 參數
+    public boolean isFinishRegistered = false; // 是否已註冊完成的標誌
+
+    // BLE 相關變數
+    public static Activity global_activity;
+    public static TextView txt_countDown;
+    public static BT4 bt4;
+
+    // 繪製 ECG 圖表所需的變數
     private final Handler countDownHandler = new Handler();
-    public CountDownTimer countDownTimer; //倒數
+    public CountDownTimer countDownTimer; // 倒數計時器
     boolean isCountDownRunning = false;
     boolean isMeasurementOver = false;
     private static final int COUNTDOWN_INTERVAL = 1000;
@@ -114,37 +110,33 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
     public static LineChart lineChart;
     public static LineChart chart_df;
-    public static LineChart chart_df2;
+    public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
-
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
     public static ArrayList<Double> oldValue = new ArrayList<Double>();
-    public static LineDataSet chartSet1 = new LineDataSet(null, "");
 
-
-    // L2D
     private SignalProcess signalProcess;
     private FindPeaks findPeaks;
     private EcgMath ecgMath = new EcgMath();
     public CleanFile cleanFile;
     private FileMaker fileMaker = new FileMaker(this);
     public ArrayList<Float> rawEcgSignal = new ArrayList<>();
-
-    private String hrvString;
     private ArrayList<String> registerData = new ArrayList<>();
 
+    // Python 相關變數
     public static Python py;
     public static PyObject pyObj;
+
+    static {
+        System.loadLibrary("newidentify");
+        System.loadLibrary("lp4tocha");
+    }
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        //初始化SharedPreference
-        preferences = getSharedPreferences("my_preferences", MODE_PRIVATE);
-        editor = preferences.edit();
-
         global_activity = this;
 
         //初始化物件
@@ -158,7 +150,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
-//        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
@@ -288,8 +279,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                stopALL();
-//                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+//                stopALL();
+                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
             }
         });
         btn_clean.setOnClickListener(new View.OnClickListener() {
@@ -451,7 +442,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         }
     }
 
-
     /**
      * 量測與畫圖
      */
@@ -464,7 +454,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 oldValue.clear(); // 清除上次的數據
                 txt_isMe.setText("");
                 txt_checkID_status.setText("");
-
                 initchart();
             });
             if (!isCountDownRunning) {
@@ -569,7 +558,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 if (step[0] == 3) {
                     if (!bt4.file_data.isEmpty()) {
                         processLP4(bt4.file_data);
-
                     } else {
                         runOnUiThread(() -> ShowToast("檔案大小為0"));
                     }
@@ -636,7 +624,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         new Thread(new Runnable() {
             @Override
             public void run() {
-                fileName = chaFile.getName();//取得檔案名稱
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = findPeaks.filedData(decodeCha.rawEcgSignal);
@@ -656,7 +643,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             Log.e("EmptyDataList", "dataList有誤");
             return;
         }
-
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -664,8 +650,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 try {
                     // 調用 Python 函數並獲取結果
                     ShowToast("計算中...");
-                    PyObject result = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
-                    getHRVData(result);
+                    PyObject hrv_analysis = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+                    getHRVData(hrv_analysis);
                 } catch (Exception e) {
                     Log.e("PythonError", "Exception type: " + e.getClass().getSimpleName());
                     Log.e("PythonError", "Exception message: " + e.getMessage());
@@ -681,13 +667,17 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
 
-        hrvString = hrv.toString();//將hrv轉為字串
-
-        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
+        String hrvJsonString = hrv.toString().replaceAll("nan", "null")
+                .replaceAll("masked", "null");
 
         Log.d("getHRVData", "getHRVData: " + hrvJsonString);
 
         heartRateData = gson.fromJson(hrvJsonString, HeartRateData.class);
+
+        if (heartRateData.getBpm() == 0.0) {
+            txt_result.setText("量測失敗");
+            return;
+        }
 
         Map<String, List<Integer>> rPeaksMap = gson.fromJson(r_peaks.toString(), new TypeToken<Map<String, List<Integer>>>() {
         }.getType());
@@ -697,11 +687,11 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         }.getType());
         List<Double> rValuesList = rValuesMap.get("r_values");
 
-        rPeaksList = findPeaks.filterRPeaks(rPeaksList, 250);
-        rValuesList = findPeaks.findRPeaks(rawEcgSignal, rPeaksList);
-
         assert rPeaksList != null;
         assert rValuesList != null;
+
+        rPeaksList = findPeaks.filterRPeaks(rPeaksList, 250);
+        rValuesList = findPeaks.findRPeaks(rawEcgSignal, rPeaksList);
 
         calculateValues(rPeaksList, rValuesList);
     }
@@ -751,7 +741,6 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         showDetectOnUI();
     }
 
-
     public void addRegisterList() {
         JSONObject jsonObject = new JSONObject();
         try {
@@ -768,7 +757,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
             jsonObject.put("breathingrate", heartRateData.getBreathingrate());
             jsonObject.put("DiffSelf", heartRateData.getDiffSelf());
-            jsonObject.put("R_Med", heartRateData.getR_Med() * 10);
+            jsonObject.put("R_Med", heartRateData.getR_Med() * 100);
             jsonObject.put("HalfWidth", heartRateData.getHalfWidth());
 
             // 添加到 registerData
@@ -785,23 +774,27 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
     public void showDetectOnUI() {
         runOnUiThread(() -> {
-            txt_result.setText("當下量測\n" +
-                    "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
-                    "IBI: " + String.format("%.2f", heartRateData.getIbi()) + "\n" +
-                    "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
-                    "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
-                    "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
-                    "PNN20: " + String.format("%.2f", heartRateData.getPnn20()) + "\n" +
-                    "PNN50: " + String.format("%.2f", heartRateData.getPnn50()) + "/" +
-                    "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
-                    "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
-                    "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                    "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
-                    "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
-                    "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
-                    "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
-                    "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth())
-            );
+            try {
+                String s = "當下量測\n" +
+                        "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
+                        "IBI: " + String.format("%.2f", heartRateData.getIbi()) + "\n" +
+                        "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
+                        "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
+                        "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
+                        "PNN20: " + String.format("%.2f", heartRateData.getPnn20()) + "\n" +
+                        "PNN50: " + String.format("%.2f", heartRateData.getPnn50()) + "/" +
+                        "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
+                        "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
+                        "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
+                        "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
+                        "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
+                        "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
+                        "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
+                        "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
+                txt_result.setText(s);
+            }catch (Exception e){
+                Log.e("showDetectOnUI", "showDetectOnUI: "+e);
+            }
         });
     }
 
@@ -842,17 +835,22 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
         Log.d("distance", s);
 
-        txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, distance));
-        txt_checkID_result.setText(String.format("界定值: %.5f", threshold));
-        if (distance < threshold) {
-            txt_isMe.setText("本人");
-        } else {
-            txt_isMe.setText("非本人");
-        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, distance));
+                txt_checkID_result.setText(String.format("界定值: %.5f", threshold));
+                if (distance <= threshold) {
+                    txt_isMe.setText("本人");
+                } else {
+                    txt_isMe.setText("非本人");
+                }
 
-        if (Math.abs(loginVector.get("R_Med")) < 50) {
-            txt_isMe.append("振幅過小!!!!");
-        }
+                if (Math.abs(loginVector.get("R_Med")) < 50) {
+                    txt_isMe.append("\n振幅過小!!!!");
+                }
+            }
+        });
 
         //get Map value
         List<Double> registerVector1List = getMapValue(registerVector1);

@@ -2,7 +2,6 @@ import numpy as np
 import heartpy as hp
 import json
 
-
 def hrv_analysis(data, sampling_rate):
     # Convert the data to a NumPy array
     data_np = np.array(data)
@@ -17,7 +16,6 @@ def hrv_analysis(data, sampling_rate):
         windowsize=0.6,
         calc_freq=True,
         reject_segmentwise=True,
-        hampel_correct=True,
     )
 
     # Get the R-peaks and corresponding R-values

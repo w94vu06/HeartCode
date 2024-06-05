@@ -26,6 +26,10 @@ import java.util.List;
 
 public class BeginActivity extends AppCompatActivity {
     Button btn_signUp,btn_clear_lp4;
+
+    public static Python py;
+    public static PyObject pyObj;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,6 +62,9 @@ public class BeginActivity extends AppCompatActivity {
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
+
+        py = Python.getInstance();
+        pyObj = py.getModule("hrv_analysis");
     }
 
     /**

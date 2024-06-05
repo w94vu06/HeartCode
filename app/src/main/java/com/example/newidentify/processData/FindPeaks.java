@@ -36,25 +36,20 @@ public class FindPeaks {
             }
         }
 
-//        // 進行帶阻濾波處理
-//        List<Float> bandStop = (butter_bandStop_filter(dataList, 50, 65, 1000, 1));
-//
-//        // 進行帶通濾波處理
-//        List<Float> floats = (butter_bandpass_filter(bandStop, 1, 40, 1000, 1));
-
         int fs = 1000;
 
-        // 帶通濾波
-        List<Float> bandpassFilteredData = butter_bandpass_filter(dataList, 0.5f, 50f, fs, 2);
+        // 帶通濾波，適用於大波和小波
+        List<Float> bandpassFilteredData = butter_bandpass_filter(dataList, 0.5f, 40f, fs, 2);
 
-        // 帶阻濾波
-        List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 45f, 55f, fs, 2);
+        // 帶阻濾波，適用於大波和小波
+        List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 49f, 51f, fs, 2);
 
-        // 高通濾波
+        // 高通濾波，適用於小波
         List<Float> highpassFilteredData = Arrays.asList(butter_highpass_filter(bandstopFilteredData, 0.5f, fs, 2));
 
-        // D通濾波
-        List<Float> lowPassFilteredData = Arrays.asList(butter_lowPass_filter(highpassFilteredData, 50f, fs, 2));
+        // 低通濾波，適用於小波
+        List<Float> lowPassFilteredData = Arrays.asList(butter_lowPass_filter(highpassFilteredData, 30f, fs, 2));
+
 
         ArrayList<Float> finalData = new ArrayList<>(lowPassFilteredData);
 
