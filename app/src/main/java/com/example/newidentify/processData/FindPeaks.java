@@ -31,25 +31,24 @@ public class FindPeaks {
 
         for (int i = 0; i < dataList.size(); i++) {
             Float value = dataList.get(i);
-            if (value.isNaN()) {
+            if (value.isNaN() || value > 1) {
                 dataList.set(i, 0.0f); // Replace NaN with zero
             }
         }
 
         int fs = 1000;
 
-        // 帶通濾波，適用於大波和小波
-        List<Float> bandpassFilteredData = butter_bandpass_filter(dataList, 0.5f, 40f, fs, 2);
+        // 帶通濾波：低頻截止提升至1Hz，高頻截止降低至40Hz
+        List<Float> bandpassFilteredData = butter_bandpass_filter(dataList, 0.5f, 50f, fs, 2);
 
-        // 帶阻濾波，適用於大波和小波
-        List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 49f, 51f, fs, 2);
+        // 帶阻濾波：精確去除工頻噪聲
+        List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 45f, 55f, fs, 2);
 
-        // 高通濾波，適用於小波
+         // 高通濾波：進一步去除低頻噪聲
         List<Float> highpassFilteredData = Arrays.asList(butter_highpass_filter(bandstopFilteredData, 0.5f, fs, 2));
 
-        // 低通濾波，適用於小波
-        List<Float> lowPassFilteredData = Arrays.asList(butter_lowPass_filter(highpassFilteredData, 30f, fs, 2));
-
+        // 低通濾波：進一步去除高頻噪聲
+        List<Float> lowPassFilteredData = Arrays.asList(butter_lowPass_filter(highpassFilteredData, 50f, fs, 2));
 
         ArrayList<Float> finalData = new ArrayList<>(lowPassFilteredData);
 

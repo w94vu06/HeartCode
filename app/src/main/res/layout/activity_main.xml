@@ -118,6 +118,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
+
         android:orientation="horizontal"
         android:layout_marginStart="@dimen/dp_5"
         android:layout_marginEnd="@dimen/dp_5">
@@ -127,18 +128,16 @@
             android:layout_width="@dimen/dp_0"
             android:layout_height="@dimen/dp_30"
             android:layout_weight="1"
-            android:fontFamily="@font/glowsanssc_condensed_book"
-            android:gravity="right"
-            android:text=""
+            android:gravity="center_vertical|left"
+            android:text="123"
             android:textColor="@color/gray"
-            android:textSize="15sp" />
+            android:textSize="@dimen/sp_14" />
 
         <TextView
             android:id="@+id/txt_checkID_result"
             android:layout_width="@dimen/dp_0"
             android:layout_height="@dimen/dp_30"
             android:layout_weight="1"
-            android:fontFamily="@font/glowsanssc_condensed_book"
             android:gravity="center"
             android:text=""
             android:textColor="@color/gray"
@@ -160,7 +159,6 @@
                 android:id="@+id/txt_isMe"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/glowsanssc_condensed_book"
                 android:gravity="center"
                 android:text="識別結果"
                 android:textColor="@color/blue"
@@ -170,7 +168,6 @@
                 android:id="@+id/txt_result"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/glowsanssc_condensed_book"
                 android:gravity="center"
                 android:text="量測結果"
                 android:textColor="@color/green"
@@ -187,12 +184,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/dp_10" />
 
-<!--            <com.github.mikephil.charting.charts.LineChart-->
-<!--                android:id="@+id/chart_df2"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="@dimen/dp_180"-->
-<!--                android:layout_marginStart="@dimen/dp_8"-->
-<!--                android:layout_marginEnd="@dimen/dp_8" />-->
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chart_df2"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_180"
+                android:layout_marginStart="@dimen/dp_8"
+                android:layout_marginEnd="@dimen/dp_8" />
 
         </LinearLayout>
 

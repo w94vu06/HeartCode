@@ -150,7 +150,7 @@ public class ChartSetting {
         pDataSet.setDrawCircles(true); // 設置畫圓點
         pDataSet.setDrawValues(false);
         pDataSet.setColor(Color.TRANSPARENT);
-        lineData.addDataSet(pDataSet);
+//        lineData.addDataSet(pDataSet);
 
 //      標記Q點
         List<Entry> qEntries = filterPointsInRange(Q_index_up, ecg_signal_origin, Start, End);
@@ -161,7 +161,7 @@ public class ChartSetting {
         qDataSet.setDrawCircles(true); // 設置畫圓點
         qDataSet.setDrawValues(false);
         qDataSet.setColor(Color.TRANSPARENT);
-        lineData.addDataSet(qDataSet);
+//        lineData.addDataSet(qDataSet);
 
         // 標記R點
         List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, Start, End);
@@ -182,7 +182,7 @@ public class ChartSetting {
         sDataSet.setDrawCircles(true); // 設置畫圓點
         sDataSet.setDrawValues(false);
         sDataSet.setColor(Color.TRANSPARENT);
-        lineData.addDataSet(sDataSet);
+//        lineData.addDataSet(sDataSet);
 
         // 標記T點
         List<Entry> tEntries = filterPointsInRange(T_index_up, ecg_signal_origin, Start, End);
@@ -193,7 +193,7 @@ public class ChartSetting {
         tDataSet.setDrawCircles(true); // 設置畫圓點
         tDataSet.setDrawValues(false);
         tDataSet.setColor(Color.TRANSPARENT);
-        lineData.addDataSet(tDataSet);
+//        lineData.addDataSet(tDataSet);
 
         //將LineData對象設定給圖表並刷新
         chart.setData(lineData);

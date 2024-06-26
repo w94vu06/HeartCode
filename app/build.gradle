@@ -25,17 +25,12 @@ android {
             python {
                 pip {
                     install "heartpy"
-//                    install "astropy>=3.0.4"
-//                    install "future>=0.16.0"
-//                    install "nolds>=0.4.1"
                     install "numpy"
                     install "scipy>=1.1.0"
-
                 }
             }
 
         }
-
         sourceSets {
             main {
                 python.srcDirs = ["src/main/python"]
@@ -94,8 +89,8 @@ dependencies {
         exclude group: 'org.apache.maven.surefire', module: 'common-java5'
     }
     implementation 'org.apache.commons:commons-math-parent:4.0-beta1'
-    implementation group: 'org.lz4', name: 'lz4-java', version: '1.8.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation 'org.lz4:lz4-java:1.8.0'
 }

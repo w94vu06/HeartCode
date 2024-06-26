@@ -5,6 +5,7 @@ import static com.example.newidentify.MainActivity.global_activity;
 
 import android.graphics.Color;
 
+import com.example.newidentify.MainActivity;
 import com.example.newidentify.util.ChartSetting;
 import com.github.mikephil.charting.data.Entry;
 
@@ -128,25 +129,32 @@ public class SignalProcess extends Thread {
     }
 
     public float calDiffSelf(ArrayList<Float> floats, List<Integer> R_index) {
-    List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
-    List<Float> df2 = getReduceRR100(floats, R_index.get(3), R_index.get(5));
-    List<Float> df3 = getReduceRR100(floats, R_index.get(6), R_index.get(8));
-    List<Float> df4 = getReduceRR100(floats, R_index.get(8), R_index.get(10));
+        if (R_index.size() < 12) {
+            return 9999f; // 或者拋出一個異常
+        }
+//        List<Float> df1 = getReduceRR100(floats, R_index.get(R_index.size() - 12), R_index.get(R_index.size() - 10));
+//        List<Float> df2 = getReduceRR100(floats, R_index.get(R_index.size() - 9), R_index.get(R_index.size() - 7));
+//        List<Float> df3 = getReduceRR100(floats, R_index.get(R_index.size() - 6), R_index.get(R_index.size() - 4));
+//        List<Float> df4 = getReduceRR100(floats, R_index.get(R_index.size() - 3), R_index.get(R_index.size() - 1));
+        List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
+        List<Float> df2 = getReduceRR100(floats, R_index.get(7), R_index.get(9));
+        List<Float> df3 = getReduceRR100(floats, R_index.get(4), R_index.get(6));
+        List<Float> df4 = getReduceRR100(floats, R_index.get(1), R_index.get(3));
 
-    float diff12 = calMidDiff(df1, df2);
-    float diff13 = calMidDiff(df1, df3);
-    float diff14 = calMidDiff(df1, df4);
-    float diff23 = calMidDiff(df2, df3);
+        float diff12 = calMidDiff(df1, df2);
+        float diff13 = calMidDiff(df1, df3);
+        float diff14 = calMidDiff(df1, df4);
+        float diff23 = calMidDiff(df2, df3);
 
-    float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
+        float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
 
-    ChartSetting chartSetting = new ChartSetting();
-    global_activity.runOnUiThread(() -> {
-        chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
-    });
+        ChartSetting chartSetting = new ChartSetting();
+        global_activity.runOnUiThread(() -> {
+            chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
+        });
 
-    return diffSelf;
-}
+        return diffSelf;
+    }
 
     public double[] convertFloatsToDoubles(ArrayList<Float> input) {
         if (input == null) {
@@ -158,41 +166,4 @@ public class SignalProcess extends Thread {
         }
         return output;
     }
-
-    public void getFFT(double[] signal) {
-        // 這裡應該是從你的ECG設備或數據集載入的信號數據
-        double sampleRate = 1000.0; // 採樣率
-        signal = Arrays.copyOfRange(signal, 4000, 20384);
-        Complex[] fftResult = performFFT(signal);
-        // 計算每個點的頻率
-        double[] frequency = calculateFrequency(fftResult.length, sampleRate);
-
-        // 查找最大幅度的頻率
-        double maxMagnitude = Double.NEGATIVE_INFINITY;
-        int maxIndex = -1;
-        for (int i = 0; i < fftResult.length; i++) {
-            double magnitude = fftResult[i].abs();
-            if (magnitude > maxMagnitude) {
-                maxMagnitude = magnitude;
-                maxIndex = i;
-            }
-        }
-
-        double dominantFrequency = frequency[maxIndex];
-        System.out.println("主導頻率: " + dominantFrequency + " Hz");
-    }
-
-    public static Complex[] performFFT(double[] signal) {
-        FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
-        return transformer.transform(signal, TransformType.FORWARD);
-    }
-
-    public static double[] calculateFrequency(int n, double sampleRate) {
-        double[] frequency = new double[n];
-        for (int i = 0; i < n; i++) {
-            frequency[i] = i * sampleRate / n;
-        }
-        return frequency;
-    }
-
 }

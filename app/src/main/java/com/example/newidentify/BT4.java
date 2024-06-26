@@ -626,8 +626,6 @@ public class BT4 extends Service {
                                     e.printStackTrace();
                                 }
                                 SystemClock.sleep(10);
-
-
                             }//while
                         }
                     }).start();
@@ -652,7 +650,7 @@ public class BT4 extends Service {
                 for (int i = 2; i < 514; i++) {
                     if (file_data.size() < File_Count) {
                         file_data.add(Buffer_Array.get(i));
-                                        }
+                    }
                 }
                 global_activity.runOnUiThread(new Runnable() {
                     @Override
@@ -677,7 +675,7 @@ public class BT4 extends Service {
         writeBLE(new byte[]{(byte) 0xaa, 0x24, 0, 0, 0, 0, 0x00}, new Handler() {
             @Override
             public void handleMessage(Message msg2) {
-                file_data = new ArrayList<Byte>();
+                file_data = new ArrayList<>();
                 file_index = 0;
 
                 read_handler.sendMessage(new Message());

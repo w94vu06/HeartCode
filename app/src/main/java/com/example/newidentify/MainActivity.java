@@ -14,8 +14,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.MediaScannerConnection;
 import android.os.Bundle;
@@ -34,6 +32,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.chaquo.python.PyObject;
+import com.example.newidentify.processData.HeartRateData;
 import com.example.newidentify.util.ChartSetting;
 import com.example.newidentify.util.CleanFile;
 import com.example.newidentify.util.EcgMath;
@@ -54,7 +53,6 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -110,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
     public static LineChart lineChart;
     public static LineChart chart_df;
+    public static LineChart chart_df2;
     public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
@@ -150,6 +149,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
+        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
@@ -627,7 +627,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = findPeaks.filedData(decodeCha.rawEcgSignal);
-
+                fileMaker.makeCSVFloatArrayList(rawEcgSignal, "rawEcgSignal.csv");
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -666,9 +666,8 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
-
-        String hrvJsonString = hrv.toString().replaceAll("nan", "null")
-                .replaceAll("masked", "null");
+        Log.d("getHRVData", "getHRVData: " + result);
+        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
 
         Log.d("getHRVData", "getHRVData: " + hrvJsonString);
 
@@ -700,24 +699,34 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     // 計算各項數據
     public void calculateValues(List<Integer> r_indices, List<Double> r_values) {
         Collections.sort(r_indices);
-
-        heartRateData.setDiffSelf(signalProcess.calDiffSelf(rawEcgSignal, r_indices));
+        // 檢查 R 波的數量是否足夠
+        float diffSelf = signalProcess.calDiffSelf(rawEcgSignal, r_indices);
+        if (diffSelf == 9999f) {
+            txt_result.setText("量測失敗");
+            return;
+        }
+        heartRateData.setDiffSelf(diffSelf);
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(findPeaks.calculateHalfWidths(rawEcgSignal, r_indices));
 
-//        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
-//        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
-//        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
-//        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
+        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
+        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
+        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
+        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
 
-//        chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
-        setRegisterData();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
+                setRegisterData();
+            }
+        });
     }
 
     public void setRegisterData() {
         Log.d("regi", "setRegisterData: " + Math.abs(heartRateData.getDiffSelf()));
         if (!isFinishRegistered) {
-            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 120) {
+            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 80) {
                 addRegisterList();
                 if (registerData.size() == 3) {
                     isFinishRegistered = true;
@@ -732,7 +741,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 txt_isMe.setText("參數不在範圍內!");
                 txt_checkID_status.setText("註冊還需: (" + registerData.size() + "/3)");
             }
-        } else {
+        } else if (heartRateData.getBpm() < 125) {
             addRegisterList();
             if (registerData.size() >= 4) {
                 euclideanDistance();
@@ -756,7 +765,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
             jsonObject.put("sd2", heartRateData.getSd2() * 2);
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
             jsonObject.put("breathingrate", heartRateData.getBreathingrate());
-            jsonObject.put("DiffSelf", heartRateData.getDiffSelf());
+            jsonObject.put("DiffSelf", heartRateData.getDiffSelf() * 10);
             jsonObject.put("R_Med", heartRateData.getR_Med() * 100);
             jsonObject.put("HalfWidth", heartRateData.getHalfWidth());
 
@@ -775,25 +784,30 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     public void showDetectOnUI() {
         runOnUiThread(() -> {
             try {
-                String s = "當下量測\n" +
-                        "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
-                        "IBI: " + String.format("%.2f", heartRateData.getIbi()) + "\n" +
-                        "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
-                        "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
-                        "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
-                        "PNN20: " + String.format("%.2f", heartRateData.getPnn20()) + "\n" +
-                        "PNN50: " + String.format("%.2f", heartRateData.getPnn50()) + "/" +
-                        "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
-                        "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
-                        "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                        "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
-                        "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
-                        "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
-                        "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
-                        "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
+                String s = "";
+                if (heartRateData.getBpm() < 125) {
+                    s = "當下量測\n" +
+                            "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
+                            "IBI: " + String.format("%.2f", heartRateData.getIbi()) + "\n" +
+                            "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
+                            "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
+                            "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
+                            "PNN20: " + String.format("%.2f", heartRateData.getPnn20()) + "\n" +
+                            "PNN50: " + String.format("%.2f", heartRateData.getPnn50()) + "/" +
+                            "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
+                            "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
+                            "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
+                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
+                            "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
+                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
+                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
+                            "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
+                } else {
+                    s = "參數計算異常";
+                }
                 txt_result.setText(s);
-            }catch (Exception e){
-                Log.e("showDetectOnUI", "showDetectOnUI: "+e);
+            } catch (Exception e) {
+                Log.e("showDetectOnUI", "showDetectOnUI: " + e);
             }
         });
     }
@@ -828,6 +842,9 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distanceInside3 = calculateEuclideanDistance(registerVector1, registerVector3);
         double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3);
         Log.d("threshold_ori", "原來的閥值: " + distanceThreshold);
+        if (distanceThreshold < 110) {
+            distanceThreshold = 110;
+        }
 
         double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
         Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
