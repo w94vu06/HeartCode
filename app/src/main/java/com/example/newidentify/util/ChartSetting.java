@@ -215,6 +215,65 @@ public class ChartSetting {
         chart.invalidate();
     }
 
+    public void markR(LineChart chart, ArrayList<Float> ecg_signal_origin,
+                          List<Integer> R_index_up, double yValue) {
+        // 繪製ECG信號
+        List<Entry> entries = new ArrayList<>();
+        for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
+            // 將ECG信號的數據點轉換為Entry對象並添加到entries列表，僅限於指定範圍
+            entries.add(new Entry(i, ecg_signal_origin.get(i)));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
+        dataSet.setColor(Color.BLACK);
+        dataSet.setValueTextColor(Color.BLACK);
+        dataSet.setDrawCircles(false); // 設置不畫圓點
+        dataSet.setDrawValues(false); // 設置不繪製數值
+
+        LineData lineData = new LineData(dataSet);
+
+        // 標記R點
+        List<Entry> rEntries = filterPointsInRange(R_index_up, ecg_signal_origin, Start, End);
+
+        LineDataSet rDataSet = new LineDataSet(rEntries, "R Points");
+        rDataSet.setCircleColor(Color.RED);
+        rDataSet.setCircleRadius(6f);
+        rDataSet.setDrawCircles(true); // 設置畫圓點
+        rDataSet.setDrawValues(false);
+        lineData.addDataSet(rDataSet);
+
+        // 繪製水平線
+        List<Entry> horizontalLineEntries = new ArrayList<>();
+        for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
+            horizontalLineEntries.add(new Entry(i, (float) yValue));
+        }
+
+        LineDataSet horizontalLineDataSet = new LineDataSet(horizontalLineEntries, "Average R Value");
+        horizontalLineDataSet.setColor(Color.BLUE);
+        horizontalLineDataSet.setDrawCircles(false);
+        horizontalLineDataSet.setDrawValues(false);
+        lineData.addDataSet(horizontalLineDataSet);
+
+        //將LineData對象設定給圖表並刷新
+        chart.setData(lineData);
+        // 去掉左側Y軸標籤
+        chart.getAxisLeft().setDrawLabels(false);
+
+        // 去掉右側Y軸標籤
+        chart.getAxisRight().setDrawLabels(false);
+
+        // 去掉圖表的描述標籤
+        Description description = new Description();
+        description.setText(""); // 將描述設置為空字符串
+        chart.setDescription(description);
+
+
+        // 隱藏圖例，如果您不希望顯示「ECG Signal」、「R Points」、「T Points」等標籤
+        chart.getLegend().setEnabled(false);
+
+        chart.invalidate();
+    }
+
     private List<Entry> filterPointsInRange(List<Integer> indices, ArrayList<Float> data, int start, int end) {
         List<Entry> entries = new ArrayList<>();
         for (int index : indices) {

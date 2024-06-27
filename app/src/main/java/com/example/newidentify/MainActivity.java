@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
@@ -279,8 +280,10 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                stopALL();
-                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+                stopALL();
+//                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+//                processRandomCHAFileInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/5cha");
+//                processRandomCHAFileInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/yucha");
             }
         });
         btn_clean.setOnClickListener(new View.OnClickListener() {
@@ -627,7 +630,14 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = findPeaks.filedData(decodeCha.rawEcgSignal);
-                fileMaker.makeCSVFloatArrayList(rawEcgSignal, "rawEcgSignal.csv");
+                String date = new SimpleDateFormat("yyyyMMddhhmmss",
+                        Locale.getDefault()).format(System.currentTimeMillis());
+
+                fileMaker.makeCSVFloatArrayList(rawEcgSignal, date + "_rawEcgSignal.csv");
+
+                // 打印數據進行檢查
+                Log.d("EcgSignal", "rawEcgSignal: " + rawEcgSignal.toString());
+
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -656,7 +666,12 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                     Log.e("PythonError", "Exception type: " + e.getClass().getSimpleName());
                     Log.e("PythonError", "Exception message: " + e.getMessage());
                     Log.e("PythonError", "Stack trace: ", e);
-                    txt_result.setText("量測失敗");
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            txt_result.setText("量測失敗");
+                        }
+                    });
                 }
             }
         }).start();
@@ -670,11 +685,15 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
 
         Log.d("getHRVData", "getHRVData: " + hrvJsonString);
-
         heartRateData = gson.fromJson(hrvJsonString, HeartRateData.class);
 
         if (heartRateData.getBpm() == 0.0) {
-            txt_result.setText("量測失敗");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    txt_result.setText("量測失敗");
+                }
+            });
             return;
         }
 
@@ -708,16 +727,23 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         heartRateData.setDiffSelf(diffSelf);
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(findPeaks.calculateHalfWidths(rawEcgSignal, r_indices));
+        Log.d("getHRVData", "calculateValues: "+  String.format("%.2f", heartRateData.getR_Med()));
+//        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
+//        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
+//        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
+//        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
 
-        List<Integer> p_indices = findPeaks.findPPoints(r_indices, rawEcgSignal);
-        List<Integer> q_indices = findPeaks.findQPoints(rawEcgSignal, r_indices);
-        List<Integer> s_indices = findPeaks.findSPoints(rawEcgSignal, r_indices);
-        List<Integer> t_indices = findPeaks.findTPoints(rawEcgSignal, r_indices);
+        double sumRValue = 0;
+        for (double r_value : r_values) {
+            sumRValue += r_value;
+        }
+        double avgRValue = sumRValue / r_values.size();
 
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
+//                chartSetting.markPQRST(chart_df2, rawEcgSignal, p_indices, q_indices, r_indices, s_indices, t_indices);
+                chartSetting.markR(chart_df2, rawEcgSignal, r_indices, avgRValue);
                 setRegisterData();
             }
         });
@@ -726,7 +752,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
     public void setRegisterData() {
         Log.d("regi", "setRegisterData: " + Math.abs(heartRateData.getDiffSelf()));
         if (!isFinishRegistered) {
-            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 80) {
+            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 100) {
                 addRegisterList();
                 if (registerData.size() == 3) {
                     isFinishRegistered = true;
@@ -804,6 +830,7 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
                             "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
                 } else {
                     s = "參數計算異常";
+                    txt_isMe.setText("");
                 }
                 txt_result.setText(s);
             } catch (Exception e) {
@@ -840,17 +867,17 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
         double distanceInside1 = calculateEuclideanDistance(registerVector1, registerVector2);
         double distanceInside2 = calculateEuclideanDistance(registerVector2, registerVector3);
         double distanceInside3 = calculateEuclideanDistance(registerVector1, registerVector3);
-        double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3);
+        double distanceThreshold = ((distanceInside1 + distanceInside2 + distanceInside3) / 3) * 1.5;
         Log.d("threshold_ori", "原來的閥值: " + distanceThreshold);
         if (distanceThreshold < 110) {
             distanceThreshold = 110;
         }
 
         double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
-        Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
+//        Log.d("dos", "distanceInside1: " + distanceInside1 + "\ndistanceInside2: " + distanceInside2 + "\ndistanceInside3: " + distanceInside3 + "\ndistanceThreshold: " + distanceThreshold);
 
         String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
-        Log.d("distance", s);
+//        Log.d("distance", s);
 
         runOnUiThread(new Runnable() {
             @Override
@@ -960,6 +987,34 @@ public class MainActivity extends AppCompatActivity implements FindPeaksCallback
 
                 // 處理隊列中的每個文件
                 processFilesQueue(fileQueue);
+            } else {
+                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
+            }
+        } else {
+            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
+        }
+    }
+
+    public void processRandomCHAFileInDirectory(String directoryPath) {
+        File directory = new File(directoryPath);
+        // 確保該路徑是目錄
+        if (directory.isDirectory()) {
+            // 取得目錄下所有檔案（和目錄）
+            File[] files = directory.listFiles();
+
+            // 確保files不為null
+            if (files != null && files.length > 0) {
+                // 隨機選擇一個檔案
+                Random random = new Random();
+                File file = files[random.nextInt(files.length)];
+
+                // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
+                if (file.isFile() && (file.getName().endsWith(".cha") || file.getName().endsWith(".CHA"))) {
+                    // 處理選擇的檔案
+                    readCHA(String.valueOf(file));
+                } else {
+                    Log.e("ProcessCHAError", "選擇的檔案不是.cha檔案：" + file.getAbsolutePath());
+                }
             } else {
                 Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
             }

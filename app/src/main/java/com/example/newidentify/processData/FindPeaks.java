@@ -31,7 +31,7 @@ public class FindPeaks {
 
         for (int i = 0; i < dataList.size(); i++) {
             Float value = dataList.get(i);
-            if (value.isNaN() || value > 1) {
+            if (value.isNaN() || value > 1 || value < -1) {
                 dataList.set(i, 0.0f); // Replace NaN with zero
             }
         }
@@ -44,7 +44,7 @@ public class FindPeaks {
         // 帶阻濾波：精確去除工頻噪聲
         List<Float> bandstopFilteredData = butter_bandStop_filter(bandpassFilteredData, 45f, 55f, fs, 2);
 
-         // 高通濾波：進一步去除低頻噪聲
+        // 高通濾波：進一步去除低頻噪聲
         List<Float> highpassFilteredData = Arrays.asList(butter_highpass_filter(bandstopFilteredData, 0.5f, fs, 2));
 
         // 低通濾波：進一步去除高頻噪聲
@@ -189,6 +189,10 @@ public class FindPeaks {
     }
 
     private static boolean isLocalMaximum(List<Float> ecgData, int index, int range) {
+        if (index < 0 || index >= ecgData.size()) {
+            throw new IllegalArgumentException("Index is out of bounds for the ecgData list");
+        }
+
         int start = Math.max(0, index - range);
         int end = Math.min(ecgData.size(), index + range);
 

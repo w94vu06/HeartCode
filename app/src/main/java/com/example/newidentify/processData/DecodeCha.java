@@ -101,7 +101,7 @@ public class DecodeCha extends Thread {
             }
 
             if (floatData.size() > 4000) {
-                List<Float> subList = floatData.subList(4000, floatData.size());
+                List<Float> subList = floatData.subList(6000, floatData.size() - 2000);
                 rawEcgSignal.addAll(subList);
             } else {
                 System.out.println("floatData的長度小於4000，沒有足夠的資料添加。");
