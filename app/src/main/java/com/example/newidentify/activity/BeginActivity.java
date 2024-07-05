@@ -1,4 +1,4 @@
-package com.example.newidentify;
+package com.example.newidentify.activity;
 
 import android.Manifest;
 import android.content.DialogInterface;
@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -19,14 +20,17 @@ import androidx.core.app.ActivityCompat;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
+import com.example.newidentify.R;
 import com.example.newidentify.util.CleanFile;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class BeginActivity extends AppCompatActivity {
-    Button btn_signUp,btn_clear_lp4;
-
+    Button btn_signUp, btn_clear_lp4;
+    TextView txt_version;
     public static Python py;
     public static PyObject pyObj;
 
@@ -36,6 +40,7 @@ public class BeginActivity extends AppCompatActivity {
         setContentView(R.layout.begin_page);
         btn_signUp = findViewById(R.id.btn_signUp);
         btn_clear_lp4 = findViewById(R.id.btn_clear_lp4);
+        txt_version = findViewById(R.id.txt_version);
         initPermission();
         checkStorageManagerPermission();//檢查儲存權限
         Intent it = new Intent();
@@ -65,6 +70,10 @@ public class BeginActivity extends AppCompatActivity {
 
         py = Python.getInstance();
         pyObj = py.getModule("hrv_analysis");
+        String date = new SimpleDateFormat("'v'MM.dd",
+                Locale.getDefault()).format(System.currentTimeMillis());
+
+        txt_version.setText(date);
     }
 
     /**
@@ -100,7 +109,6 @@ public class BeginActivity extends AppCompatActivity {
             builder.show();
         }
     }
-
 
 
 }

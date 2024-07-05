@@ -7,14 +7,6 @@ import java.util.List;
 public class EcgMath {
 
     /**
-     * 取最大值
-     */
-    public float calculateMax(List<Float> list) {
-        return Collections.max(list);
-    }
-
-
-    /**
      * 取中位數
      */
     public float calculateMedian(List<Float> list) {
@@ -25,44 +17,49 @@ public class EcgMath {
             return list.get(list.size() / 2);
         }
     }
-    /**
-     * 取中位數 double
-     */
-    public double calculateMedianDouble(ArrayList<Integer> values) {
-        Collections.sort(values);
-        int size = values.size();
-        if (size % 2 == 0) {
-            return ((double) values.get(size / 2 - 1) + (double) values.get(size / 2)) / 2.0;
-        } else {
-            return (double) values.get(size / 2);
-        }
-    }
-
-    public int calculateAverage(List<Integer> halfWidths) {
-        int sum = 0;
-        for (int halfWidth : halfWidths) {
-            sum += halfWidth;
-        }
-        return sum / halfWidths.size();
-    }
 
     /**
-     * 取標準差
+     * 取半高寬
      */
-    public float calculateSTD(List<Float> list) {
-        float sum = 0, standardDeviation = 0;
-        int length = list.size();
+    public float calculateHalfWidths(ArrayList<Float> ecg_signal, List<Integer> r_indexes) {
+        List<Float> halfWidths = new ArrayList<>();
 
-        for (float num : list) {
-            sum += num;
+        for (int r_index : r_indexes) {
+            Float r_value = ecg_signal.get(r_index);
+            Float halfMaxValue = r_value / 2;
+
+            int leftIndex = r_index;
+            while (leftIndex > 0 && ecg_signal.get(leftIndex) >= halfMaxValue) {
+                leftIndex--;
+            }
+
+            int rightIndex = r_index;
+            while (rightIndex < ecg_signal.size() - 1 && ecg_signal.get(rightIndex) >= halfMaxValue) {
+                rightIndex++;
+            }
+
+            // 計算並保存半高寬
+            float halfWidth = rightIndex - leftIndex;
+            halfWidths.add(halfWidth);
         }
-        float mean = sum / length;
 
-        for (float num : list) {
-            standardDeviation += Math.pow(num - mean, 2);
+        return averageArrayList((ArrayList<Float>) halfWidths);
+    }
+
+    /**
+     * 計算平均值
+     */
+
+    public float averageArrayList(ArrayList<Float> list) {
+        if (list == null || list.isEmpty()) {
+            return 0;
         }
-
-        return (float) Math.sqrt(standardDeviation / length);
+        int count = Math.min(list.size(), 3);
+        float sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += list.get(i);
+        }
+        return sum / count;
     }
 
     public double[] arrayListFloatToDoubleArray(ArrayList<Float> floatList) {
@@ -81,7 +78,6 @@ public class EcgMath {
         }
         return result;
     }
-
 
     public ArrayList<Float> doubleArrayToArrayListFloat(double[] array) {
         if (array == null) {

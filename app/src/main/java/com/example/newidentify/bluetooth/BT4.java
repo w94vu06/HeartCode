@@ -1,6 +1,6 @@
-package com.example.newidentify;
+package com.example.newidentify.bluetooth;
 
-import static com.example.newidentify.MainActivity.DrawChart;
+import static com.example.newidentify.activity.MainActivity.DrawChart;
 
 import android.Manifest;
 import android.annotation.SuppressLint;

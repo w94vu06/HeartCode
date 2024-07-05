@@ -1,4 +1,4 @@
-package com.example.newidentify.processData;
+package com.example.newidentify.process;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,7 +35,7 @@ public class HeartRateData {
     private double hf_nu;
 
     public double setScale(double num) {
-      return new BigDecimal(num).setScale(5, RoundingMode.HALF_UP).doubleValue();
+        return new BigDecimal(num).setScale(5, RoundingMode.HALF_UP).doubleValue();
     }
 
     // Getters
@@ -99,7 +99,6 @@ public class HeartRateData {
     public double getHalfWidth() {
         return setScale(halfWidth);
     }
-
 
 
     // Setters

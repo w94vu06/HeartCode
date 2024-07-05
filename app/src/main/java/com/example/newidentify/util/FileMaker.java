@@ -104,6 +104,7 @@ public class FileMaker {
             });
         }).start();
     }//makeCSV
+
     public void makeCSVFloatArray(float[] floats, String fileName) {
         new Thread(() -> {
             /** 檔名 */
@@ -285,7 +286,7 @@ public class FileMaker {
                             "sd2",
                             "s",
                             "sd1/sd2",
-                            "breathingrate",
+//                            "breathingrate",
                             "DiffSelf",
                             "R_Med",
                             "HalfWidth",
@@ -313,7 +314,7 @@ public class FileMaker {
     }
 
     public void writeVectorsToCSV(List<Double> registerVector1List, List<Double> registerVector2List, List<Double> registerVector3List, List<Double> loginVectorList) {
-        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "breathingrate", "DiffSelf", "R_Med", "HalfWidth","VectorDistance","threshold"};
+        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "DiffSelf", "R_Med", "HalfWidth","VectorDistance","threshold"};
         String[] states = {"regi1", "regi2", "regi3", "login"};
         String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());
@@ -351,49 +352,6 @@ public class FileMaker {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-
-
-    private void migrateAndDeleteOldRecordFile() {
-        String TAG = "migrateAndDeleteOldRecordFile";
-        String folderName = "revlis_record";
-        String directoryPath = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + folderName;
-
-        // 原始檔案和新檔案的路徑
-        String oldFilePath = directoryPath + File.separator + "revlis_record.csv";
-        String newFilePath = directoryPath + File.separator + "revlis_record_zh.csv";
-
-        File oldFile = new File(oldFilePath);
-        File newFile = new File(newFilePath);
-
-        // 檢查原始檔案是否存在
-        if (oldFile.exists()) {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(oldFile), "UTF-8"));
-                 FileOutputStream fos = new FileOutputStream(newFile, true);
-                 OutputStreamWriter writer = new OutputStreamWriter(fos, "UTF-8")) {
-
-                // 如果新檔案不存在或檔案大小為0，則寫入BOM和標題
-                if (!newFile.exists() || newFile.length() == 0) {
-                    writer.write('\ufeff');
-                    String[] title = {
-                            "時間", "自己當下差異度", "與註冊時差異度", "R_V中位數", "R_V最大值", "R_V標準差",
-                            "T_V中位數", "T_V最大值", "T_V標準差", "平均半高寬", "R-T電壓差", "R-T距離", "是否為本人"
-                    };
-                    writer.write(String.join(",", title) + "\n");
-                }
-
-                String line;
-                reader.readLine(); // 跳過原始檔案的標題行
-                while ((line = reader.readLine()) != null) {
-                    writer.write(line + "\n"); // 寫入新文件
-                }
-
-            } catch (IOException e) {
-                Log.e(TAG, "Error migrating record file", e);
-            }
-        } else {
-
         }
     }
 

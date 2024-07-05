@@ -32,9 +32,7 @@
             android:layout_height="wrap_content"
             android:text="CmateH"/>
 
-        <Space
-            android:layout_width="@dimen/dp_50"
-            android:layout_height="wrap_content"/>
+
 
         <!-- RadioButton for Device 2 -->
         <RadioButton
@@ -42,6 +40,13 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="WTK230"/>
+
+        <!-- RadioButton for Device 2 -->
+        <RadioButton
+            android:id="@+id/radioButtonDevice3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="L3550"/>
     </RadioGroup>
 
     <!-- Button -->

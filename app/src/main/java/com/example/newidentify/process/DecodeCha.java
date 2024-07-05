@@ -1,4 +1,4 @@
-package com.example.newidentify.processData;
+package com.example.newidentify.process;
 
 import android.util.Log;
 
@@ -19,7 +19,7 @@ import java.util.List;
 public class DecodeCha extends Thread {
     public String filePath;
     public CellData cell;
-    public ArrayList<Float> rawEcgSignal = new ArrayList<>();
+    public double[] ecgSignal;
     private static final String TAG = "DecodeCha";
 
     //處理CHA
@@ -100,13 +100,23 @@ public class DecodeCha extends Thread {
                 floatData.set(i, (float) (((k - 2048) * 5) * 0.001));
             }
 
-            if (floatData.size() > 4000) {
+            if (floatData.size() > 8000) { // 確保subList的範圍有效
                 List<Float> subList = floatData.subList(6000, floatData.size() - 2000);
-                rawEcgSignal.addAll(subList);
-            } else {
-                System.out.println("floatData的長度小於4000，沒有足夠的資料添加。");
-            }
+                List<Float> cleanedList = new ArrayList<>();
 
+                for (Float value : subList) {
+                    if (!value.isNaN()) {
+                        cleanedList.add(value);
+                    }
+                }
+
+                ecgSignal = new double[cleanedList.size()];
+                for (int i = 0; i < cleanedList.size(); i++) {
+                    ecgSignal[i] = cleanedList.get(i);
+                }
+            } else {
+                System.out.println("floatData的長度小於8000，沒有足夠的資料添加。");
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -192,5 +202,34 @@ public class DecodeCha extends Thread {
         }
         byte[] a = new byte[1024];
         return a;
+    }
+}
+
+
+class CellData {
+    private final int len;
+    private final ArrayList<String> newcell;
+    private final ArrayList<String> datav;
+    private final ArrayList<Integer> spv;
+
+    public CellData(int len, ArrayList newcell, ArrayList spv, ArrayList datav) {
+        this.len = len;
+        this.newcell = newcell;
+        this.spv = spv;
+        this.datav = datav;
+    }
+
+    public ArrayList getList(int i) {
+        if (i == 1) {
+            return newcell;
+        } else if (i == 2) {
+            return spv;
+        } else {
+            return datav;
+        }
+    }
+
+    public int getLen() {
+        return len;
     }
 }

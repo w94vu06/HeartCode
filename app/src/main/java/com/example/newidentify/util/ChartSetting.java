@@ -216,7 +216,7 @@ public class ChartSetting {
     }
 
     public void markR(LineChart chart, ArrayList<Float> ecg_signal_origin,
-                          List<Integer> R_index_up, double yValue) {
+                          List<Integer> R_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
         for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
@@ -241,18 +241,6 @@ public class ChartSetting {
         rDataSet.setDrawCircles(true); // 設置畫圓點
         rDataSet.setDrawValues(false);
         lineData.addDataSet(rDataSet);
-
-        // 繪製水平線
-        List<Entry> horizontalLineEntries = new ArrayList<>();
-        for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
-            horizontalLineEntries.add(new Entry(i, (float) yValue));
-        }
-
-        LineDataSet horizontalLineDataSet = new LineDataSet(horizontalLineEntries, "Average R Value");
-        horizontalLineDataSet.setColor(Color.BLUE);
-        horizontalLineDataSet.setDrawCircles(false);
-        horizontalLineDataSet.setDrawValues(false);
-        lineData.addDataSet(horizontalLineDataSet);
 
         //將LineData對象設定給圖表並刷新
         chart.setData(lineData);

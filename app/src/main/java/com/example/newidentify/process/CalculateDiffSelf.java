@@ -1,27 +1,18 @@
-package com.example.newidentify.processData;
+package com.example.newidentify.process;
 
-import static com.example.newidentify.MainActivity.chart_df;
-import static com.example.newidentify.MainActivity.global_activity;
+import static com.example.newidentify.activity.MainActivity.chart_df;
+import static com.example.newidentify.activity.MainActivity.global_activity;
 
 import android.graphics.Color;
 
-import com.example.newidentify.MainActivity;
 import com.example.newidentify.util.ChartSetting;
 import com.github.mikephil.charting.data.Entry;
 
-import org.apache.commons.math3.complex.Complex;
-import org.apache.commons.math3.transform.DftNormalization;
-import org.apache.commons.math3.transform.FastFourierTransformer;
-import org.apache.commons.math3.transform.TransformType;
-
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class SignalProcess extends Thread {
-    private static final String TAG = "SignalProcess";
-
+public class CalculateDiffSelf extends Thread {
 
     public List<Float> getReduceRR100(List<Float> dataList, int startIndex, int endIndex) {
         List<Entry> dataBetweenTwoR = new ArrayList<>();
@@ -132,10 +123,7 @@ public class SignalProcess extends Thread {
         if (R_index.size() < 12) {
             return 9999f; // 或者拋出一個異常
         }
-//        List<Float> df1 = getReduceRR100(floats, R_index.get(R_index.size() - 12), R_index.get(R_index.size() - 10));
-//        List<Float> df2 = getReduceRR100(floats, R_index.get(R_index.size() - 9), R_index.get(R_index.size() - 7));
-//        List<Float> df3 = getReduceRR100(floats, R_index.get(R_index.size() - 6), R_index.get(R_index.size() - 4));
-//        List<Float> df4 = getReduceRR100(floats, R_index.get(R_index.size() - 3), R_index.get(R_index.size() - 1));
+
         List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
         List<Float> df2 = getReduceRR100(floats, R_index.get(7), R_index.get(9));
         List<Float> df3 = getReduceRR100(floats, R_index.get(4), R_index.get(6));
@@ -154,16 +142,5 @@ public class SignalProcess extends Thread {
         });
 
         return diffSelf;
-    }
-
-    public double[] convertFloatsToDoubles(ArrayList<Float> input) {
-        if (input == null) {
-            return null; // 或處理null的情況
-        }
-        double[] output = new double[input.size()];
-        for (int i = 0; i < input.size(); i++) {
-            output[i] = input.get(i); // 自動將float轉換為double
-        }
-        return output;
     }
 }
