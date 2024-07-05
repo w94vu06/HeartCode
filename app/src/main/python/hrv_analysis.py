@@ -86,5 +86,5 @@ def hrv_analysis(data, sampling_rate):
     r_peaks_json = json.dumps(r_peaks_data)
     r_values_json = json.dumps(r_values_data)
 
-    return features, r_peaks_json, r_values_json
+    return features, r_peaks_json, r_values_json, signals_data
 

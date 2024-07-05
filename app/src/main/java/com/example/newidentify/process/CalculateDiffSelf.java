@@ -1,7 +1,7 @@
 package com.example.newidentify.process;
 
-import static com.example.newidentify.activity.MainActivity.chart_df;
-import static com.example.newidentify.activity.MainActivity.global_activity;
+import static com.example.newidentify.MainActivity.chart_df;
+import static com.example.newidentify.MainActivity.global_activity;
 
 import android.graphics.Color;
 

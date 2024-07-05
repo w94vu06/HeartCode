@@ -1,4 +1,4 @@
-package com.example.newidentify.activity;
+package com.example.newidentify;
 
 import static com.example.newidentify.util.ChartSetting.Butterworth;
 import static com.example.newidentify.util.ChartSetting.getStreamLP;
@@ -32,7 +32,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.chaquo.python.PyObject;
-import com.example.newidentify.R;
 import com.example.newidentify.bluetooth.BT4;
 import com.example.newidentify.process.HeartRateData;
 import com.example.newidentify.util.ChartSetting;
@@ -60,7 +59,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Random;
 import java.util.Set;
 
 import com.chaquo.python.Python;
@@ -198,22 +196,22 @@ public class MainActivity extends AppCompatActivity {
         // 取得應用程式專用的外部資料夾
         File externalFilesDir = getExternalFilesDir(null);
 
-//        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
-//            // 列出所有文件
-//            File[] files = externalFilesDir.listFiles();
-//            if (files != null) {
-//                for (File file : files) {
-//                    // 檢查檔案名稱是否符合特定的前綴和後綴
-//                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_")) {
-//                        // 刪除符合條件的文件
-//                        boolean deleted = file.delete();
-//                        if (!deleted) {
-//                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+            // 列出所有文件
+            File[] files = externalFilesDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    // 檢查檔案名稱是否符合特定的前綴和後綴
+                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_")) {
+                        // 刪除符合條件的文件
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
+                        }
+                    }
+                }
+            }
+        }
         if (deviceDialog != null && deviceDialog.isShowing()) {
             deviceDialog.dismiss();
         }
@@ -288,9 +286,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 stopALL();
-//                processNextFile();
-                File file = new File(Environment.getExternalStorageDirectory(), "Android/data/com.example.newidentify/files/l_20240605145133_888888_8535730560650908116.lp4");
-                readLP4(file.getAbsolutePath());
+                processNextFile();
             }
         });
 
@@ -326,7 +322,6 @@ public class MainActivity extends AppCompatActivity {
         RadioGroup devicesRadioGroup = deviceDialog.findViewById(R.id.devicesRadioGroup);
         RadioButton radioButtonDevice1 = deviceDialog.findViewById(R.id.radioButtonDevice1);
         RadioButton radioButtonDevice2 = deviceDialog.findViewById(R.id.radioButtonDevice2);
-        RadioButton radioButtonDevice3 = deviceDialog.findViewById(R.id.radioButtonDevice3);
         Button completeButton = deviceDialog.findViewById(R.id.completeButton);
         deviceDialog.setCancelable(false);
 
@@ -349,11 +344,6 @@ public class MainActivity extends AppCompatActivity {
                     bt4.Bluetooth_init();
                     deviceDialog.dismiss();
 
-                    // 處理選中 Device 2 的邏輯
-                } else if (checkedRadioButtonId == R.id.radioButtonDevice3) {
-                    bt4.deviceName = "L3550 Series";
-                    bt4.Bluetooth_init();
-                    deviceDialog.dismiss();
                     // 處理選中 Device 2 的邏輯
                 } else {
                     // 提示用戶選擇一個裝置
@@ -605,16 +595,13 @@ public class MainActivity extends AppCompatActivity {
 
             // 通知系統掃描新生成的文件
             runOnUiThread(() -> {
-                MediaScannerConnection.scanFile(this,
-                        new String[]{tempFile.getAbsolutePath()},
+                MediaScannerConnection.scanFile(this, new String[]{tempFile.getAbsolutePath()},
                         null, null);
             });
         } catch (IOException e) {
             e.printStackTrace();
         }
         readLP4(tempFilePath);
-
-//        readLP4("/sdcard/Android/data/com.example.newidentify/files/l_20240705135448_888888_5829083579935155189.lp4");
     }
 
     private void readLP4(String tempFilePath) {
@@ -626,17 +613,7 @@ public class MainActivity extends AppCompatActivity {
         }
         // decpEcgFil將LP4檔案解碼為CHA格式的方法
         decpEcgFile(tempFilePath);
-        Log.d("gggg", "decpEcgFile: "+ decpEcgFile(tempFilePath));
-//        readCHA(tempFilePath);
-
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            // 根據LP4檔案路徑建立對應的CHA檔案名稱
-            String chaFileName = file.getName().replace(".lp4", ".CHA");
-            String chaFilePath = new File(file.getParent(), chaFileName).getAbsolutePath();
-
-            // 繼續處理CHA檔案，例如讀取和分析
-            readCHA(chaFilePath);
-        }, 1000); // 根據需要調整延遲時間
+        readCHA(tempFilePath.replace(".lp4", ".cha"));
     }
 
     public void readCHA(String chaFilePath) {
@@ -700,6 +677,8 @@ public class MainActivity extends AppCompatActivity {
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
+        PyObject ecgSignal = result.asList().get(3);
+        Log.d("gggg", "getHRVFeature: "+ecgSignal);
         Log.d("getHRVData", "getHRVData: " + result);
         String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
 

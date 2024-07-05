@@ -26,7 +26,6 @@ android {
             python {
                 pip {
                     install "neurokit2"
-                    install "heartpy"
                     install "numpy"
                 }
             }

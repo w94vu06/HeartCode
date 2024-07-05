@@ -6733,3 +6733,4 @@ int CBeatClassify::NoiseCheck(int datum, int delay, int RR, int beatBegin, int b
 extern "C" {
 
 }
+

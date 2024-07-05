@@ -1,4 +1,4 @@
-package com.example.newidentify.activity;
+package com.example.newidentify;
 
 import android.Manifest;
 import android.content.DialogInterface;
@@ -20,7 +20,6 @@ import androidx.core.app.ActivityCompat;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
-import com.example.newidentify.R;
 import com.example.newidentify.util.CleanFile;
 
 import java.text.SimpleDateFormat;
