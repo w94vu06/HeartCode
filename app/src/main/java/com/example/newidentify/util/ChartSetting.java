@@ -262,6 +262,7 @@ public class ChartSetting {
         chart.invalidate();
     }
 
+
     private List<Entry> filterPointsInRange(List<Integer> indices, ArrayList<Float> data, int start, int end) {
         List<Entry> entries = new ArrayList<>();
         for (int index : indices) {

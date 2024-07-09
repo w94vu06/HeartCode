@@ -49,7 +49,7 @@ def hrv_analysis(data, sampling_rate):
     # 提取所需的HRV特徵
     try:
         bpm = 60000 / hrv_metrics['HRV_MeanNN'].iloc[0]
-        ibi = hrv_metrics['HRV_MeanNN'].iloc[0]
+        mean_nn = hrv_metrics['HRV_MeanNN'].iloc[0]
         sdnn = hrv_metrics['HRV_SDNN'].iloc[0]
         sdsd = hrv_metrics['HRV_SDSD'].iloc[0]
         rmssd = hrv_metrics['HRV_RMSSD'].iloc[0]
@@ -59,12 +59,35 @@ def hrv_analysis(data, sampling_rate):
         sd1 = hrv_metrics['HRV_SD1'].iloc[0]
         sd2 = hrv_metrics['HRV_SD2'].iloc[0]
         sd1_sd2 = hrv_metrics['HRV_SD1SD2'].iloc[0]
+        iqrnn = hrv_metrics['HRV_IQRNN'].iloc[0]
+        ap_en = hrv_metrics['HRV_ApEn'].iloc[0]
+        shan_en = hrv_metrics['HRV_ShanEn'].iloc[0]
+        fuzzy_en = hrv_metrics['HRV_FuzzyEn'].iloc[0]
+        samp_en = hrv_metrics['HRV_SampEn'].iloc[0]
+        ulf = hrv_metrics['HRV_ULF'].iloc[0]
+        vlf = hrv_metrics['HRV_VLF'].iloc[0]
+        lf = hrv_metrics['HRV_LF'].iloc[0]
+        hf = hrv_metrics['HRV_HF'].iloc[0]
+        tp = hrv_metrics['HRV_TP'].iloc[0]
+        lfhf = hrv_metrics['HRV_LFHF'].iloc[0]
+        lfn = hrv_metrics['HRV_LFn'].iloc[0]
+        hfn = hrv_metrics['HRV_HFn'].iloc[0]
+        ln_hf = hrv_metrics['HRV_LnHF'].iloc[0]
+        sdann1 = hrv_metrics['HRV_SDANN1'].iloc[0]
+        sdann2 = hrv_metrics['HRV_SDANN2'].iloc[0]
+        sdann5 = hrv_metrics['HRV_SDANN5'].iloc[0]
+        
+        # 簡單估算AF指標
+        af_threshold = 3.5  # 根據數據調整這個值
+        mean_nn_threshold = 1000  # 根據數據調整這個值
+        af = (shan_en < af_threshold) and (mean_nn > mean_nn_threshold)
+        
     except Exception as e:
         return None, json.dumps({"error": str(e)}), json.dumps({"error": str(e)})
 
     features = {
         'bpm': bpm,
-        'ibi': ibi,
+        'mean_nn': mean_nn,  # meanNN
         'sdnn': sdnn,
         'sdsd': sdsd,
         'rmssd': rmssd,
@@ -74,7 +97,26 @@ def hrv_analysis(data, sampling_rate):
         'sd1': sd1,
         'sd2': sd2,
         'sd1/sd2': sd1_sd2,
+        'iqrnn': iqrnn,
+        'ap_en': ap_en,
+        'shan_en': shan_en,
+        'fuzzy_en': fuzzy_en,
+        'samp_en': samp_en,
+        'ulf': ulf,
+        'vlf': vlf,
+        'lf': lf,
+        'hf': hf,
+        'tp': tp,
+        'lfhf': lfhf,
+        'lfn': lfn,
+        'hfn': hfn,
+        'ln_hf': ln_hf,
+        'sdann1': sdann1,
+        'sdann2': sdann2,
+        'sdann5': sdann5,
+        'af': af,
     }
+
 
     filtered_r_peaks = [int(i) for i in r_peaks if not np.isnan(i)]
     r_values = [float(i) for i in r_values if not np.isnan(i)]

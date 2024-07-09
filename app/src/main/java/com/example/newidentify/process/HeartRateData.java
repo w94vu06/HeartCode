@@ -5,14 +5,9 @@ import java.math.RoundingMode;
 
 public class HeartRateData {
 
-    public double diffSelf;
-    public double R_Med; // R波電壓中位數
-    public double T_Med; // T波電壓中位數
-    public double halfWidth;
-    public double RT_Volt;
-    public double RT_Interval;
+
     private double bpm;
-    private double ibi;
+    private double mean_nn;
     private double sdnn;
     private double sdsd;
     private double rmssd;
@@ -22,17 +17,31 @@ public class HeartRateData {
     private double sd1;
     private double sd2;
     private double sd1sd2;
-    private double breathingrate;
+    private double iqrnn;
+    private double ap_en;
+    private double shan_en;
+    private double fuzzy_en;
+    private double samp_en;
+    private double ulf;
     private double vlf;
     private double lf;
     private double hf;
-    private double lf_hf;
-    private double p_total;
-    private double vlf_perc;
-    private double lf_perc;
-    private double hf_perc;
-    private double lf_nu;
-    private double hf_nu;
+    private double tp;
+    private double lfhf;
+    private double lfn;
+    private double hfn;
+    private double ln_hf;
+    private double sdann1;
+    private double sdann2;
+    private double sdann5;
+    private double af;
+
+    public double diffSelf;
+    public double R_Med; // R波電壓中位數
+    public double T_Med; // T波電壓中位數
+    public double halfWidth;
+    public double RT_Volt;
+    public double RT_Interval;
 
     public double setScale(double num) {
         return new BigDecimal(num).setScale(5, RoundingMode.HALF_UP).doubleValue();
@@ -43,8 +52,8 @@ public class HeartRateData {
         return setScale(bpm);
     }
 
-    public double getIbi() {
-        return setScale(ibi);
+    public double getMean_nn() {
+        return setScale(mean_nn);
     }
 
     public double getSdnn() {
@@ -79,13 +88,80 @@ public class HeartRateData {
         return setScale(sd2);
     }
 
-
     public double getSd1sd2() {
         return setScale(sd1sd2);
     }
 
-    public double getBreathingrate() {
-        return setScale(breathingrate);
+    public double getIqrnn() {
+        return setScale(iqrnn);
+    }
+
+    public double getAp_en() {
+        return setScale(ap_en);
+    }
+
+    public double getShan_en() {
+        return setScale(shan_en);
+    }
+
+    public double getFuzzy_en() {
+        return setScale(fuzzy_en);
+    }
+
+    public double getSamp_en() {
+        return setScale(samp_en);
+    }
+
+    public double getUlf() {
+        return setScale(ulf);
+    }
+
+    public double getVlf() {
+        return setScale(vlf);
+    }
+
+    public double getLf() {
+        return setScale(lf);
+    }
+
+    public double getHf() {
+        return setScale(hf);
+    }
+
+    public double getTp() {
+        return setScale(tp);
+    }
+
+    public double getLfhf() {
+        return setScale(lfhf);
+    }
+
+    public double getLfn() {
+        return setScale(lfn);
+    }
+
+    public double getHfn() {
+        return setScale(hfn);
+    }
+
+    public double getLn_hf() {
+        return setScale(ln_hf);
+    }
+
+    public double getSdann1() {
+        return setScale(sdann1);
+    }
+
+    public double getSdann2() {
+        return setScale(sdann2);
+    }
+
+    public double getSdann5() {
+        return setScale(sdann5);
+    }
+
+    public double getAf() {
+        return setScale(af);
     }
 
     public double getDiffSelf() {
@@ -100,14 +176,13 @@ public class HeartRateData {
         return setScale(halfWidth);
     }
 
-
     // Setters
     public void setBpm(double bpm) {
         this.bpm = setScale(bpm);
     }
 
-    public void setIbi(double ibi) {
-        this.ibi = setScale(ibi);
+    public void setMean_nn(double mean_nn) {
+        this.mean_nn = setScale(mean_nn);
     }
 
     public void setSdnn(double sdnn) {
@@ -146,8 +221,88 @@ public class HeartRateData {
         this.sd1sd2 = setScale(sd1sd2);
     }
 
-    public void setBreathingrate(double breathingrate) {
-        this.breathingrate = setScale(breathingrate);
+    public void setIqrnn(double iqrnn) {
+        this.iqrnn = setScale(iqrnn);
+    }
+
+    public void setAp_en(double ap_en) {
+        this.ap_en = setScale(ap_en);
+    }
+
+    public void setShan_en(double shan_en) {
+        this.shan_en = setScale(shan_en);
+    }
+
+    public void setFuzzy_en(double fuzzy_en) {
+        this.fuzzy_en = setScale(fuzzy_en);
+    }
+
+    public void setSamp_en(double samp_en) {
+        this.samp_en = setScale(samp_en);
+    }
+
+    public void setUlf(double ulf) {
+        this.ulf = setScale(ulf);
+    }
+
+    public void setVlf(double vlf) {
+        this.vlf = setScale(vlf);
+    }
+
+    public void setLf(double lf) {
+        this.lf = setScale(lf);
+    }
+
+    public void setHf(double hf) {
+        this.hf = setScale(hf);
+    }
+
+    public void setTp(double tp) {
+        this.tp = setScale(tp);
+    }
+
+    public void setLfhf(double lfhf) {
+        this.lfhf = setScale(lfhf);
+    }
+
+    public void setLfn(double lfn) {
+        this.lfn = setScale(lfn);
+    }
+
+    public void setHfn(double hfn) {
+        this.hfn = setScale(hfn);
+    }
+
+    public void setLn_hf(double ln_hf) {
+        this.ln_hf = setScale(ln_hf);
+    }
+
+    public void setSdann1(double sdann1) {
+        this.sdann1 = setScale(sdann1);
+    }
+
+    public void setSdann2(double sdann2) {
+        this.sdann2 = setScale(sdann2);
+    }
+
+    public void setSdann5(double sdann5) {
+        this.sdann5 = setScale(sdann5);
+    }
+
+    public void setAf(double af) {
+        this.af = setScale(af);
+    }
+
+    public void setRT_Volt(double RT_Volt) {
+        this.RT_Volt = setScale(RT_Volt);
+    }
+
+    public void setRT_Interval(double RT_Interval) {
+        this.RT_Interval = setScale(RT_Interval);
+    }
+
+    public void setT_Med(double T_Med) {
+        this.T_Med = setScale(T_Med);
     }
 
     public void setDiffSelf(double diffSelf) {

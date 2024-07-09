@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -123,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
     public CleanFile cleanFile;
     private FileMaker fileMaker = new FileMaker(this);
     public double[] rawEcgSignal;
+
     private ArrayList<String> registerData = new ArrayList<>();
 
     // Python 相關變數
@@ -606,7 +608,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void readLP4(String tempFilePath) {
         File file = new File(tempFilePath);
-        Log.d("path", "readLP4: "+tempFilePath);
+        Log.d("path", "readLP4: " + tempFilePath);
         if (!file.exists()) {
             Log.e("LP4FileNotFound", "LP4檔案不存在：" + tempFilePath);
             return;
@@ -638,7 +640,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
-
 
 
     public void calculateWithPython(double[] ecg_signal) {
@@ -677,8 +678,6 @@ public class MainActivity extends AppCompatActivity {
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
-        PyObject ecgSignal = result.asList().get(3);
-        Log.d("gggg", "getHRVFeature: "+ecgSignal);
         Log.d("getHRVData", "getHRVData: " + result);
         String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
 
@@ -707,7 +706,6 @@ public class MainActivity extends AppCompatActivity {
 
         calculateValues(rPeaksList, rValuesList);
     }
-
 
     // 計算各項數據
     public void calculateValues(List<Integer> r_indices, List<Double> r_values) {
@@ -761,8 +759,9 @@ public class MainActivity extends AppCompatActivity {
     public void addRegisterList() {
         JSONObject jsonObject = new JSONObject();
         try {
+
             jsonObject.put("bpm", heartRateData.getBpm());
-            jsonObject.put("ibi", heartRateData.getIbi());
+            jsonObject.put("mean_nn", heartRateData.getMean_nn());
             jsonObject.put("sdnn", heartRateData.getSdnn());
             jsonObject.put("sdsd", heartRateData.getSdsd());
             jsonObject.put("rmssd", heartRateData.getRmssd());
@@ -772,7 +771,25 @@ public class MainActivity extends AppCompatActivity {
             jsonObject.put("sd1", heartRateData.getSd1());
             jsonObject.put("sd2", heartRateData.getSd2());
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
-//            jsonObject.put("breathingrate", heartRateData.getBreathingrate());
+            jsonObject.put("iqrnn", heartRateData.getIqrnn());
+            jsonObject.put("ap_en", heartRateData.getAp_en());
+            jsonObject.put("shan_en", heartRateData.getShan_en());
+            jsonObject.put("fuzzy_en", heartRateData.getFuzzy_en());
+            jsonObject.put("samp_en", heartRateData.getSamp_en());
+            jsonObject.put("ulf", heartRateData.getUlf());
+            jsonObject.put("vlf", heartRateData.getVlf());
+            jsonObject.put("lf", heartRateData.getLf());
+            jsonObject.put("hf", heartRateData.getHf());
+            jsonObject.put("tp", heartRateData.getTp());
+            jsonObject.put("lfhf", heartRateData.getLfhf());
+            jsonObject.put("lfn", heartRateData.getLfn());
+            jsonObject.put("hfn", heartRateData.getHfn());
+            jsonObject.put("ln_hf", heartRateData.getLn_hf());
+            jsonObject.put("sdann1", heartRateData.getSdann1());
+            jsonObject.put("sdann2", heartRateData.getSdann2());
+            jsonObject.put("sdann5", heartRateData.getSdann5());
+            jsonObject.put("af", heartRateData.getAf());
+
             jsonObject.put("diffSelf", heartRateData.getDiffSelf());
             jsonObject.put("r_med", heartRateData.getR_Med());
             jsonObject.put("halfWidth", heartRateData.getHalfWidth());
@@ -796,7 +813,7 @@ public class MainActivity extends AppCompatActivity {
                 if (heartRateData.getBpm() < 125) {
                     s = "當下量測\n" +
                             "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
-                            "IBI: " + String.format("%.2f", heartRateData.getIbi()) + "\n" +
+                            "MEANNN: " + String.format("%.2f", heartRateData.getMean_nn()) + "\n" +
                             "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
                             "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
                             "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
@@ -805,11 +822,25 @@ public class MainActivity extends AppCompatActivity {
                             "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
                             "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
                             "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
-//                            "BreathingRate: " + String.format("%.2f", heartRateData.getBreathingrate()) + "\n" +
-                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
-                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
-                            "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
+                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "\n" +
+                            "IQRNN: " + String.format("%.2f", heartRateData.getIqrnn()) + "\n" +
+                            "AP_EN: " + String.format("%.2f", heartRateData.getAp_en()) + "\n" +
+                            "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
+                            "FUZZY_EN: " + String.format("%.2f", heartRateData.getFuzzy_en()) + "\n" +
+                            "SAMP_EN: " + String.format("%.2f", heartRateData.getSamp_en()) + "\n" +
+                            "ULF: " + String.format("%.2f", heartRateData.getUlf()) + "\n" +
+                            "VLF: " + String.format("%.2f", heartRateData.getVlf()) + "\n" +
+                            "LF: " + String.format("%.2f", heartRateData.getLf()) + "\n" +
+                            "HF: " + String.format("%.2f", heartRateData.getHf()) + "\n" +
+                            "TP: " + String.format("%.2f", heartRateData.getTp()) + "\n" +
+                            "LF/HF: " + String.format("%.2f", heartRateData.getLfhf()) + "\n" +
+                            "LFN: " + String.format("%.2f", heartRateData.getLfn()) + "\n" +
+                            "HFN: " + String.format("%.2f", heartRateData.getHfn()) + "\n" +
+                            "LN_HF: " + String.format("%.2f", heartRateData.getLn_hf()) + "\n" +
+                            "SDANN1: " + String.format("%.2f", heartRateData.getSdann1()) + "\n" +
+                            "SDANN2: " + String.format("%.2f", heartRateData.getSdann2()) + "\n" +
+                            "SDANN5: " + String.format("%.2f", heartRateData.getSdann5()) + "\n" +
+                            "AF: " + String.format("%.2f", heartRateData.getAf());
                 } else {
                     s = "參數計算異常";
                     txt_isMe.setText("");
@@ -897,7 +928,7 @@ public class MainActivity extends AppCompatActivity {
 
     public double calculateWeightedEuclideanDistance(Map<String, Double> vector1, Map<String, Double> vector2) {
         Map<String, Double> weights = new HashMap<>();
-        weights.put("ibi", 2.0);
+        weights.put("mean_nn", 2.0);
         weights.put("hr_mad", 2.0);
         weights.put("sd2", 2.0);
         weights.put("diffSelf", 2.0);
