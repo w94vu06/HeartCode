@@ -55,7 +55,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,6 +64,9 @@ import java.util.Set;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 
 import org.apache.commons.logging.LogFactory;
@@ -113,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static LineChart lineChart;
     public static LineChart chart_df;
-    public static LineChart chart_df2;
+//    public static LineChart chart_df2;
     public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
@@ -130,6 +132,9 @@ public class MainActivity extends AppCompatActivity {
     // Python 相關變數
     public static Python py;
     public static PyObject pyObj;
+    public double nk_process_time; // 計算NK2計算時間
+    public long startTime; // 開始時間
+
 
     static {
         System.loadLibrary("newidentify");
@@ -151,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
         chartSetting = new ChartSetting();
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
-        chart_df2 = findViewById(R.id.chart_df2);
+//        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
@@ -657,8 +662,12 @@ public class MainActivity extends AppCompatActivity {
                     for (int i = 0; i < ecg_signal.length; i++) {
                         ecg_signal[i] *= 1;
                     }
+                    startTime = System.currentTimeMillis(); // 紀錄開始時間
                     PyObject hrv_analysis = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+
                     getHRVFeature(hrv_analysis);
+
+
                 } catch (Exception e) {
                     Log.e("PythonError", "Exception type: " + e.getClass().getSimpleName());
                     Log.e("PythonError", "Exception message: " + e.getMessage());
@@ -675,11 +684,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void getHRVFeature(PyObject result) {
+        long endTime = System.currentTimeMillis(); // 紀錄結束時間
+        nk_process_time = (double) (endTime - startTime) / 1000; // 計算時間差
+        Log.d("time", "nk_process_time: "+nk_process_time);
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
         Log.d("getHRVData", "getHRVData: " + result);
-        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null");
+        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null").replaceAll("inf", "null");
 
         heartRateData = gson.fromJson(hrvJsonString, HeartRateData.class);
 
@@ -712,25 +724,25 @@ public class MainActivity extends AppCompatActivity {
         Collections.sort(r_indices);
         // 檢查 R 波的數量是否足夠
         float diffSelf = calculateDiffSelf.calDiffSelf(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
-        if (diffSelf == 9999f) {
-            txt_result.setText("量測失敗");
-            return;
-        }
+
         heartRateData.setDiffSelf(diffSelf);
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(ecgMath.calculateHalfWidths(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices));
+        if (diffSelf == 9999f || diffSelf > 1.5) {
+            txt_result.setText("訊號穩定度過差");
+            return;
+        }
 
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                chartSetting.markR(chart_df2, ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
+//                chartSetting.markR(chart_df2, ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
                 setRegisterData();
             }
         });
     }
 
     public void setRegisterData() {
-        Log.d("regi", "setRegisterData: " + Math.abs(heartRateData.getDiffSelf()));
         if (!isFinishRegistered) {
             if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 100) {
                 addRegisterList();
@@ -822,30 +834,18 @@ public class MainActivity extends AppCompatActivity {
                             "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
                             "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
                             "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "\n" +
+                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
                             "IQRNN: " + String.format("%.2f", heartRateData.getIqrnn()) + "\n" +
-                            "AP_EN: " + String.format("%.2f", heartRateData.getAp_en()) + "\n" +
+                            "AP_EN: " + String.format("%.2f", heartRateData.getAp_en()) + "/" +
                             "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
-                            "FUZZY_EN: " + String.format("%.2f", heartRateData.getFuzzy_en()) + "\n" +
-                            "SAMP_EN: " + String.format("%.2f", heartRateData.getSamp_en()) + "\n" +
-                            "ULF: " + String.format("%.2f", heartRateData.getUlf()) + "\n" +
-                            "VLF: " + String.format("%.2f", heartRateData.getVlf()) + "\n" +
-                            "LF: " + String.format("%.2f", heartRateData.getLf()) + "\n" +
-                            "HF: " + String.format("%.2f", heartRateData.getHf()) + "\n" +
-                            "TP: " + String.format("%.2f", heartRateData.getTp()) + "\n" +
-                            "LF/HF: " + String.format("%.2f", heartRateData.getLfhf()) + "\n" +
-                            "LFN: " + String.format("%.2f", heartRateData.getLfn()) + "\n" +
-                            "HFN: " + String.format("%.2f", heartRateData.getHfn()) + "\n" +
-                            "LN_HF: " + String.format("%.2f", heartRateData.getLn_hf()) + "\n" +
-                            "SDANN1: " + String.format("%.2f", heartRateData.getSdann1()) + "\n" +
-                            "SDANN2: " + String.format("%.2f", heartRateData.getSdann2()) + "\n" +
-                            "SDANN5: " + String.format("%.2f", heartRateData.getSdann5()) + "\n" +
-                            "AF: " + String.format("%.2f", heartRateData.getAf());
+                            "FUZZY_EN: " + String.format("%.2f", heartRateData.getFuzzy_en()) + "/" +
+                            "AF: " + String.format("%.0f", heartRateData.getAf());
                 } else {
                     s = "參數計算異常";
                     txt_isMe.setText("");
                 }
                 txt_result.setText(s);
+                txt_result.append("\n計算時間" +nk_process_time + "秒");
             } catch (Exception e) {
                 Log.e("showDetectOnUI", "showDetectOnUI: " + e);
             }
@@ -854,12 +854,19 @@ public class MainActivity extends AppCompatActivity {
 
     public void euclideanDistance() {
         ArrayList<String> registerData = tinyDB.getListString("registerData");
+
         List<Map<String, Double>> dataLists = new ArrayList<>();
 
         // 解析 JSON 數據
         for (String jsonData : registerData) {
-            Map<String, Double> dataMap = gson.fromJson(jsonData, new TypeToken<Map<String, Double>>() {
-            }.getType());
+            JsonObject jsonObject = gson.fromJson(jsonData, JsonObject.class);
+            Map<String, Double> dataMap = new HashMap<>();
+            for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+                JsonElement element = entry.getValue();
+                if (element.isJsonPrimitive() && ((JsonPrimitive) element).isNumber()) {
+                    dataMap.put(entry.getKey(), element.getAsDouble());
+                }
+            }
             dataLists.add(dataMap);
         }
 

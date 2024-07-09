@@ -2,6 +2,7 @@ import neurokit2 as nk
 import numpy as np
 import json
 
+
 def hrv_analysis(data, sampling_rate):
     data_np = np.array(data)
     # 移除NaN值
@@ -63,25 +64,22 @@ def hrv_analysis(data, sampling_rate):
         ap_en = hrv_metrics['HRV_ApEn'].iloc[0]
         shan_en = hrv_metrics['HRV_ShanEn'].iloc[0]
         fuzzy_en = hrv_metrics['HRV_FuzzyEn'].iloc[0]
-        samp_en = hrv_metrics['HRV_SampEn'].iloc[0]
-        ulf = hrv_metrics['HRV_ULF'].iloc[0]
-        vlf = hrv_metrics['HRV_VLF'].iloc[0]
-        lf = hrv_metrics['HRV_LF'].iloc[0]
-        hf = hrv_metrics['HRV_HF'].iloc[0]
-        tp = hrv_metrics['HRV_TP'].iloc[0]
-        lfhf = hrv_metrics['HRV_LFHF'].iloc[0]
-        lfn = hrv_metrics['HRV_LFn'].iloc[0]
-        hfn = hrv_metrics['HRV_HFn'].iloc[0]
-        ln_hf = hrv_metrics['HRV_LnHF'].iloc[0]
-        sdann1 = hrv_metrics['HRV_SDANN1'].iloc[0]
-        sdann2 = hrv_metrics['HRV_SDANN2'].iloc[0]
-        sdann5 = hrv_metrics['HRV_SDANN5'].iloc[0]
-        
-        # 簡單估算AF指標
-        af_threshold = 3.5  # 根據數據調整這個值
-        mean_nn_threshold = 1000  # 根據數據調整這個值
-        af = (shan_en < af_threshold) and (mean_nn > mean_nn_threshold)
-        
+
+        # 估算AF
+        score = 0
+        if rmssd/mean_nn > 0.115:
+            score + 32
+        if shan_en > 5.4:
+            score + 27
+        if pnn50 > 40:
+            score + 24
+        if sdnn > 80:
+            score + 16
+        if score > 50:
+            af = 1
+        else:
+            af = 0
+
     except Exception as e:
         return None, json.dumps({"error": str(e)}), json.dumps({"error": str(e)})
 
@@ -101,32 +99,16 @@ def hrv_analysis(data, sampling_rate):
         'ap_en': ap_en,
         'shan_en': shan_en,
         'fuzzy_en': fuzzy_en,
-        'samp_en': samp_en,
-        'ulf': ulf,
-        'vlf': vlf,
-        'lf': lf,
-        'hf': hf,
-        'tp': tp,
-        'lfhf': lfhf,
-        'lfn': lfn,
-        'hfn': hfn,
-        'ln_hf': ln_hf,
-        'sdann1': sdann1,
-        'sdann2': sdann2,
-        'sdann5': sdann5,
-        'af': af,
+        'af': float(af),
     }
-
 
     filtered_r_peaks = [int(i) for i in r_peaks if not np.isnan(i)]
     r_values = [float(i) for i in r_values if not np.isnan(i)]
 
     r_peaks_data = {"r_peaks": filtered_r_peaks}
     r_values_data = {"r_values": r_values}
-    signals_data = signals.to_dict()  # 將處理好的信號轉換為字典
 
     r_peaks_json = json.dumps(r_peaks_data)
     r_values_json = json.dumps(r_values_data)
 
-    return features, r_peaks_json, r_values_json, signals_data
-
+    return features, r_peaks_json, r_values_json
