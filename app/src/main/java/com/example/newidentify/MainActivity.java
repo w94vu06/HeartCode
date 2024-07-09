@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static LineChart lineChart;
     public static LineChart chart_df;
-//    public static LineChart chart_df2;
+    //    public static LineChart chart_df2;
     public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
@@ -284,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
 
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/register_Andy");
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Andy");
-        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Aaron");
+//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Aaron");
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_peggy");
     }
 
@@ -293,7 +293,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 stopALL();
-                processNextFile();
+//                processNextFile();
             }
         });
 
@@ -686,7 +686,7 @@ public class MainActivity extends AppCompatActivity {
     public void getHRVFeature(PyObject result) {
         long endTime = System.currentTimeMillis(); // 紀錄結束時間
         nk_process_time = (double) (endTime - startTime) / 1000; // 計算時間差
-        Log.d("time", "nk_process_time: "+nk_process_time);
+        Log.d("time", "nk_process_time: " + nk_process_time);
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
@@ -839,13 +839,16 @@ public class MainActivity extends AppCompatActivity {
                             "AP_EN: " + String.format("%.2f", heartRateData.getAp_en()) + "/" +
                             "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
                             "FUZZY_EN: " + String.format("%.2f", heartRateData.getFuzzy_en()) + "/" +
-                            "AF: " + String.format("%.0f", heartRateData.getAf());
+                            "AF: " + String.format("%.0f", heartRateData.getAf()) + "\n" +
+                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
+                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
+                            "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
                 } else {
                     s = "參數計算異常";
                     txt_isMe.setText("");
                 }
                 txt_result.setText(s);
-                txt_result.append("\n計算時間" +nk_process_time + "秒");
+                txt_result.append("\n計算時間" + nk_process_time + "秒");
             } catch (Exception e) {
                 Log.e("showDetectOnUI", "showDetectOnUI: " + e);
             }

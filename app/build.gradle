@@ -21,8 +21,11 @@ android {
             abiFilters "armeabi-v7a", "arm64-v8a"
         }
 
+
+
         python {
-            buildPython "C:/Users/AISV3/AppData/Local/Programs/Python/Python312/python.exe"
+//            buildPython "C:/Users/AISV3/AppData/Local/Programs/Python/Python312/python.exe"
+            buildPython  "C:/Users/Yu/AppData/Local/Programs/Python/Python312/python.exe"
             python {
                 pip {
                     install "neurokit2"
@@ -44,6 +47,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
