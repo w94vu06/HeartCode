@@ -68,6 +68,43 @@ public class FileMaker {
         }).start();
     }//makeCSV
 
+    public void makeCSVDoubleArray(double[] doubles, String fileName) {
+        new Thread(() -> {
+            /** 檔名 */
+            String[] title = {"Lead2"};
+            StringBuffer csvText = new StringBuffer();
+            for (int i = 0; i < title.length; i++) {
+                csvText.append(title[i] + ",");
+            }
+            /** 內容 */
+            for (int i = 0; i < doubles.length; i++) {
+                csvText.append("\n" + doubles[i]);
+            }
+
+            ((Activity) context).runOnUiThread(() -> {
+                try {
+                    StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+                    StrictMode.setVmPolicy(builder.build());
+                    builder.detectFileUriExposure();
+                    FileOutputStream out = context.openFileOutput(fileName, Context.MODE_PRIVATE);
+                    out.write((csvText.toString().getBytes()));
+                    out.close();
+                    File fileLocation = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+                    FileOutputStream fos = new FileOutputStream(fileLocation);
+                    fos.write(csvText.toString().getBytes());
+                    Uri path = Uri.fromFile(fileLocation);
+                    Intent fileIntent = new Intent(Intent.ACTION_SEND);
+                    fileIntent.setType("text/csv");
+                    fileIntent.putExtra(Intent.EXTRA_SUBJECT, fileName);
+                    fileIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    fileIntent.putExtra(Intent.EXTRA_STREAM, path);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }).start();
+    }//makeCSV
+
     public void makeCSVFloatArrayList(ArrayList<Float> doubles, String fileName) {
         new Thread(() -> {
             /** 檔名 */
@@ -286,7 +323,11 @@ public class FileMaker {
                             "sd2",
                             "s",
                             "sd1/sd2",
-//                            "breathingrate",
+                            "iqrnn",
+                            "ap_en",
+                            "shan_en",
+                            "fuzzy_en",
+                            "af",
                             "DiffSelf",
                             "R_Med",
                             "HalfWidth",
@@ -314,7 +355,26 @@ public class FileMaker {
     }
 
     public void writeVectorsToCSV(List<Double> registerVector1List, List<Double> registerVector2List, List<Double> registerVector3List, List<Double> loginVectorList) {
-        String[] headers = {"status", "bpm", "ibi", "sdnn", "sdsd", "rmssd", "pnn20", "pnn50", "hr_mad", "sd1", "sd2", "sd1/sd2", "DiffSelf", "R_Med", "HalfWidth","VectorDistance","threshold"};
+        String[] headers = {
+                "status",
+                "bpm",
+                "mean_nn",
+                "sdnn",
+                "sdsd",
+                "rmssd",
+                "pnn20",
+                "pnn50",
+                "hr_mad",
+                "sd1",
+                "sd2",
+                "sd1/sd2",
+//                "iqrnn",
+//                "ap_en",
+                "shan_en",
+//                "fuzzy_en",
+                "af",
+                "DiffSelf",
+                "R_Med", "HalfWidth","VectorDistance","threshold"};
         String[] states = {"regi1", "regi2", "regi3", "login"};
         String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());

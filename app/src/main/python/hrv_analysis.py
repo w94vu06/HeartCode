@@ -95,10 +95,10 @@ def hrv_analysis(data, sampling_rate):
         'sd1': sd1,
         'sd2': sd2,
         'sd1/sd2': sd1_sd2,
-        'iqrnn': iqrnn,
-        'ap_en': ap_en,
+        # 'iqrnn': iqrnn,
+        # 'ap_en': ap_en,
         'shan_en': shan_en,
-        'fuzzy_en': fuzzy_en,
+        # 'fuzzy_en': fuzzy_en,
         'af': float(af),
     }
 

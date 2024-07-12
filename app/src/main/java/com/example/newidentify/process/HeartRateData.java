@@ -38,6 +38,7 @@ public class HeartRateData {
 
     public double diffSelf;
     public double R_Med; // R波電壓中位數
+    public double voltStd; // 電壓標準差
     public double T_Med; // T波電壓中位數
     public double halfWidth;
     public double RT_Volt;
@@ -170,6 +171,10 @@ public class HeartRateData {
 
     public double getR_Med() {
         return setScale(R_Med);
+    }
+
+    public double getVoltStd() {
+        return setScale(voltStd);
     }
 
     public double getHalfWidth() {
@@ -311,6 +316,10 @@ public class HeartRateData {
 
     public void setR_Med(double R_Med) {
         this.R_Med = setScale(R_Med);
+    }
+
+    public void setVoltStd(double voltStd) {
+        this.voltStd = setScale(voltStd);
     }
 
     public void setHalfWidth(double halfWidth) {

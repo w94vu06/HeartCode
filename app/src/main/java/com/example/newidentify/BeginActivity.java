@@ -72,7 +72,7 @@ public class BeginActivity extends AppCompatActivity {
         String date = new SimpleDateFormat("'v'MM.dd",
                 Locale.getDefault()).format(System.currentTimeMillis());
 
-        txt_version.setText(date);
+//        txt_version.setText(date);
     }
 
     /**

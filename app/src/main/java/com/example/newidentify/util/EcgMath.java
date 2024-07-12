@@ -19,6 +19,28 @@ public class EcgMath {
     }
 
     /**
+     * 取標準差
+     */
+
+    public static double calculateStandardDeviation(double[] data) {
+        double sum = 0.0;
+        double mean = 0.0;
+        double stdDev = 0.0;
+
+        // 計算平均值
+        for (double num : data) {
+            sum += num;
+        }
+        mean = sum / data.length;
+
+        // 計算標準差
+        for (double num : data) {
+            stdDev += Math.pow(num - mean, 2);
+        }
+        return Math.sqrt(stdDev / data.length);
+    }
+
+    /**
      * 取半高寬
      */
     public float calculateHalfWidths(ArrayList<Float> ecg_signal, List<Integer> r_indexes) {

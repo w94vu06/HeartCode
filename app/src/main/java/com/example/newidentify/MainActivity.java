@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -286,6 +287,8 @@ public class MainActivity extends AppCompatActivity {
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Andy");
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Aaron");
 //        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_peggy");
+//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Yu");
+//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/test_weight");
     }
 
     public void initBtn() {
@@ -635,7 +638,9 @@ public class MainActivity extends AppCompatActivity {
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = decodeCha.ecgSignal;
-
+//                String date = new SimpleDateFormat("yyyyMMddhhmmss",
+//                        Locale.getDefault()).format(System.currentTimeMillis());
+//                fileMaker.makeCSVDoubleArray(rawEcgSignal, date + "_rawEcgSignal.csv");
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -659,9 +664,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     // 調用 Python 函數並獲取結果
                     ShowToast("計算中...");
-                    for (int i = 0; i < ecg_signal.length; i++) {
-                        ecg_signal[i] *= 1;
-                    }
                     startTime = System.currentTimeMillis(); // 紀錄開始時間
                     PyObject hrv_analysis = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
 
@@ -728,8 +730,15 @@ public class MainActivity extends AppCompatActivity {
         heartRateData.setDiffSelf(diffSelf);
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
         heartRateData.setHalfWidth(ecgMath.calculateHalfWidths(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices));
+        heartRateData.setVoltStd(EcgMath.calculateStandardDeviation(rawEcgSignal));
+
         if (diffSelf == 9999f || diffSelf > 1.5) {
-            txt_result.setText("訊號穩定度過差");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    txt_result.setText("訊號穩定度過差");
+                }
+            });
             return;
         }
 
@@ -783,27 +792,15 @@ public class MainActivity extends AppCompatActivity {
             jsonObject.put("sd1", heartRateData.getSd1());
             jsonObject.put("sd2", heartRateData.getSd2());
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
-            jsonObject.put("iqrnn", heartRateData.getIqrnn());
-            jsonObject.put("ap_en", heartRateData.getAp_en());
+//            jsonObject.put("iqrnn", heartRateData.getIqrnn());
+//            jsonObject.put("ap_en", heartRateData.getAp_en());
             jsonObject.put("shan_en", heartRateData.getShan_en());
-            jsonObject.put("fuzzy_en", heartRateData.getFuzzy_en());
-            jsonObject.put("samp_en", heartRateData.getSamp_en());
-            jsonObject.put("ulf", heartRateData.getUlf());
-            jsonObject.put("vlf", heartRateData.getVlf());
-            jsonObject.put("lf", heartRateData.getLf());
-            jsonObject.put("hf", heartRateData.getHf());
-            jsonObject.put("tp", heartRateData.getTp());
-            jsonObject.put("lfhf", heartRateData.getLfhf());
-            jsonObject.put("lfn", heartRateData.getLfn());
-            jsonObject.put("hfn", heartRateData.getHfn());
-            jsonObject.put("ln_hf", heartRateData.getLn_hf());
-            jsonObject.put("sdann1", heartRateData.getSdann1());
-            jsonObject.put("sdann2", heartRateData.getSdann2());
-            jsonObject.put("sdann5", heartRateData.getSdann5());
+//            jsonObject.put("fuzzy_en", heartRateData.getFuzzy_en());
             jsonObject.put("af", heartRateData.getAf());
 
             jsonObject.put("diffSelf", heartRateData.getDiffSelf());
             jsonObject.put("r_med", heartRateData.getR_Med());
+            jsonObject.put("voltStd", heartRateData.getVoltStd());
             jsonObject.put("halfWidth", heartRateData.getHalfWidth());
 
             // 添加到 registerData
@@ -835,13 +832,11 @@ public class MainActivity extends AppCompatActivity {
                             "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
                             "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
                             "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
-                            "IQRNN: " + String.format("%.2f", heartRateData.getIqrnn()) + "\n" +
-                            "AP_EN: " + String.format("%.2f", heartRateData.getAp_en()) + "/" +
                             "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
-                            "FUZZY_EN: " + String.format("%.2f", heartRateData.getFuzzy_en()) + "/" +
-                            "AF: " + String.format("%.0f", heartRateData.getAf()) + "\n" +
-                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "/" +
-                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "\n" +
+                            "AF: " + String.format("%.0f", heartRateData.getAf()) + "/" +
+                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "\n" +
+                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "/" +
+                            "VoltStd: " + String.format("%.2f", heartRateData.getVoltStd()) + "\n" +
                             "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
                 } else {
                     s = "參數計算異常";
@@ -863,7 +858,7 @@ public class MainActivity extends AppCompatActivity {
         // 解析 JSON 數據
         for (String jsonData : registerData) {
             JsonObject jsonObject = gson.fromJson(jsonData, JsonObject.class);
-            Map<String, Double> dataMap = new HashMap<>();
+            Map<String, Double> dataMap = new LinkedHashMap<>();
             for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
                 JsonElement element = entry.getValue();
                 if (element.isJsonPrimitive() && ((JsonPrimitive) element).isNumber()) {
@@ -942,7 +937,8 @@ public class MainActivity extends AppCompatActivity {
         weights.put("hr_mad", 2.0);
         weights.put("sd2", 2.0);
         weights.put("diffSelf", 2.0);
-        weights.put("r_med", 100.0);
+//        weights.put("r_med", 1000.0);
+        weights.put("r_med", 10000.0);
 
         double sum = 0.0;
         for (String key : vector1.keySet()) {
@@ -956,6 +952,13 @@ public class MainActivity extends AppCompatActivity {
                 sum += weight * Math.pow(v1 - v2, 2);
             }
         }
+
+        // 增加 R_Med 差異過大的處罰
+        double rMedDiff = Math.abs(vector1.get("r_med") - vector2.get("r_med"));
+        if (rMedDiff > 0.55) { // 如果差異過大
+            sum += 100000 * Math.pow(rMedDiff, 2); // 使用一個很大的權重來放大距離
+        }
+
         return Math.sqrt(sum);
     }
 
