@@ -216,7 +216,7 @@ public class ChartSetting {
     }
 
     public void markR(LineChart chart, ArrayList<Float> ecg_signal_origin,
-                          List<Integer> R_index_up) {
+                      List<Integer> R_index_up) {
         // 繪製ECG信號
         List<Entry> entries = new ArrayList<>();
         for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
@@ -262,8 +262,83 @@ public class ChartSetting {
         chart.invalidate();
     }
 
+    public void markRT(LineChart chart, List<Float> ecg_signal_origin,
+                       List<Integer> R_peaks, List<Integer> T_onsets, List<Integer> T_peaks, List<Integer> T_offsets) {
+        // 繪製ECG信號
+        List<Entry> entries = new ArrayList<>();
+        for (int i = Start; i <= End && i < ecg_signal_origin.size(); i++) {
+            // 將ECG信號的數據點轉換為Entry對象並添加到entries列表，僅限於指定範圍
+            entries.add(new Entry(i, ecg_signal_origin.get(i)));
+        }
 
-    private List<Entry> filterPointsInRange(List<Integer> indices, ArrayList<Float> data, int start, int end) {
+        LineDataSet dataSet = new LineDataSet(entries, "ECG Signal");
+        dataSet.setColor(Color.BLACK);
+        dataSet.setValueTextColor(Color.BLACK);
+        dataSet.setDrawCircles(false); // 設置不畫圓點
+        dataSet.setDrawValues(false); // 設置不繪製數值
+
+        LineData lineData = new LineData(dataSet);
+
+        // 標記R點
+        List<Entry> rEntries = filterPointsInRange(R_peaks, ecg_signal_origin, Start, End);
+
+        LineDataSet rDataSet = new LineDataSet(rEntries, "R Points");
+        rDataSet.setCircleColor(Color.RED);
+        rDataSet.setCircleRadius(6f);
+        rDataSet.setDrawCircles(true); // 設置畫圓點
+        rDataSet.setDrawValues(false);
+        lineData.addDataSet(rDataSet);
+
+        // 標記T_onset點
+        List<Entry> tOnsetEntries = filterPointsInRange(T_onsets, ecg_signal_origin, Start, End);
+        LineDataSet tOnsetDataSet = new LineDataSet(tOnsetEntries, "T_onset Points");
+        tOnsetDataSet.setCircleColor(Color.BLUE);
+        tOnsetDataSet.setCircleRadius(6f);
+        tOnsetDataSet.setDrawCircles(true); // 設置畫圓點
+        tOnsetDataSet.setDrawValues(false);
+        lineData.addDataSet(tOnsetDataSet);
+
+        // 標記T_peak點
+        List<Entry> tPeakEntries = filterPointsInRange(T_peaks, ecg_signal_origin, Start, End);
+        LineDataSet tPeakDataSet = new LineDataSet(tPeakEntries, "T_peak Points");
+        tPeakDataSet.setCircleColor(Color.GREEN);
+        tPeakDataSet.setCircleRadius(6f);
+        tPeakDataSet.setDrawCircles(true); // 設置畫圓點
+        tPeakDataSet.setDrawValues(false);
+        lineData.addDataSet(tPeakDataSet);
+
+        // 標記T_offset點
+        List<Entry> tOffsetEntries = filterPointsInRange(T_offsets, ecg_signal_origin, Start, End);
+        LineDataSet tOffsetDataSet = new LineDataSet(tOffsetEntries, "T_offset Points");
+        tOffsetDataSet.setCircleColor(Color.YELLOW);
+        tOffsetDataSet.setCircleRadius(6f);
+        tOffsetDataSet.setDrawCircles(true); // 設置畫圓點
+        tOffsetDataSet.setDrawValues(false);
+        lineData.addDataSet(tOffsetDataSet);
+
+
+        //將LineData對象設定給圖表並刷新
+        chart.setData(lineData);
+        // 去掉左側Y軸標籤
+        chart.getAxisLeft().setDrawLabels(false);
+
+        // 去掉右側Y軸標籤
+        chart.getAxisRight().setDrawLabels(false);
+
+        // 去掉圖表的描述標籤
+        Description description = new Description();
+        description.setText(""); // 將描述設置為空字符串
+        chart.setDescription(description);
+
+
+        // 隱藏圖例，如果您不希望顯示「ECG Signal」、「R Points」、「T Points」等標籤
+        chart.getLegend().setEnabled(false);
+
+        chart.invalidate();
+    }
+
+
+    private List<Entry> filterPointsInRange(List<Integer> indices, List<Float> data, int start, int end) {
         List<Entry> entries = new ArrayList<>();
         for (int index : indices) {
             if (index >= start && index <= end && index < data.size()) {

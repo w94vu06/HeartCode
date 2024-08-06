@@ -2,9 +2,9 @@ package com.example.newidentify.process;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 public class HeartRateData {
-
 
     private double bpm;
     private double mean_nn;
@@ -17,38 +17,35 @@ public class HeartRateData {
     private double sd1;
     private double sd2;
     private double sd1sd2;
-    private double iqrnn;
-    private double ap_en;
     private double shan_en;
-    private double fuzzy_en;
-    private double samp_en;
-    private double ulf;
-    private double vlf;
-    private double lf;
-    private double hf;
-    private double tp;
-    private double lfhf;
-    private double lfn;
-    private double hfn;
-    private double ln_hf;
-    private double sdann1;
-    private double sdann2;
-    private double sdann5;
     private double af;
 
+    public double t_area;
+    public double t_height;
+
+    public double pqr_angle;
+    public double qrs_angle;
+    public double rst_angle;
+
+    private List<Integer> t_onsets;
+    private List<Integer> t_peaks;
+    private List<Integer> t_offsets;
+
+    private List<Double> signals;
     public double diffSelf;
     public double R_Med; // R波電壓中位數
     public double voltStd; // 電壓標準差
     public double T_Med; // T波電壓中位數
     public double halfWidth;
-    public double RT_Volt;
-    public double RT_Interval;
 
     public double setScale(double num) {
         return new BigDecimal(num).setScale(5, RoundingMode.HALF_UP).doubleValue();
     }
 
-    // Getters
+    /**
+     * Getters
+     */
+
     public double getBpm() {
         return setScale(bpm);
     }
@@ -93,76 +90,48 @@ public class HeartRateData {
         return setScale(sd1sd2);
     }
 
-    public double getIqrnn() {
-        return setScale(iqrnn);
-    }
-
-    public double getAp_en() {
-        return setScale(ap_en);
-    }
-
     public double getShan_en() {
         return setScale(shan_en);
     }
 
-    public double getFuzzy_en() {
-        return setScale(fuzzy_en);
-    }
-
-    public double getSamp_en() {
-        return setScale(samp_en);
-    }
-
-    public double getUlf() {
-        return setScale(ulf);
-    }
-
-    public double getVlf() {
-        return setScale(vlf);
-    }
-
-    public double getLf() {
-        return setScale(lf);
-    }
-
-    public double getHf() {
-        return setScale(hf);
-    }
-
-    public double getTp() {
-        return setScale(tp);
-    }
-
-    public double getLfhf() {
-        return setScale(lfhf);
-    }
-
-    public double getLfn() {
-        return setScale(lfn);
-    }
-
-    public double getHfn() {
-        return setScale(hfn);
-    }
-
-    public double getLn_hf() {
-        return setScale(ln_hf);
-    }
-
-    public double getSdann1() {
-        return setScale(sdann1);
-    }
-
-    public double getSdann2() {
-        return setScale(sdann2);
-    }
-
-    public double getSdann5() {
-        return setScale(sdann5);
-    }
-
     public double getAf() {
         return setScale(af);
+    }
+
+    public double getT_area() {
+        return setScale(t_area);
+    }
+
+    public double getT_height() {
+        return setScale(t_height);
+    }
+
+    public double getPqr_angle() {
+        return setScale(pqr_angle);
+    }
+
+    public double getQrs_angle() {
+        return setScale(qrs_angle);
+    }
+
+    public double getRst_angle() {
+        return setScale(rst_angle);
+    }
+
+    public List<Integer> getT_onsets() {
+        return t_onsets;
+    }
+
+    public List<Integer> getT_peaks() {
+        return t_peaks;
+    }
+
+    public List<Integer> getT_offsets() {
+        return t_offsets;
+    }
+
+    public List<Double> getSignals() {
+        return signals;
     }
 
     public double getDiffSelf() {
@@ -181,7 +150,9 @@ public class HeartRateData {
         return setScale(halfWidth);
     }
 
-    // Setters
+    /**
+     * Setters
+     */
     public void setBpm(double bpm) {
         this.bpm = setScale(bpm);
     }
@@ -226,84 +197,48 @@ public class HeartRateData {
         this.sd1sd2 = setScale(sd1sd2);
     }
 
-    public void setIqrnn(double iqrnn) {
-        this.iqrnn = setScale(iqrnn);
-    }
-
-    public void setAp_en(double ap_en) {
-        this.ap_en = setScale(ap_en);
-    }
-
     public void setShan_en(double shan_en) {
         this.shan_en = setScale(shan_en);
-    }
-
-    public void setFuzzy_en(double fuzzy_en) {
-        this.fuzzy_en = setScale(fuzzy_en);
-    }
-
-    public void setSamp_en(double samp_en) {
-        this.samp_en = setScale(samp_en);
-    }
-
-    public void setUlf(double ulf) {
-        this.ulf = setScale(ulf);
-    }
-
-    public void setVlf(double vlf) {
-        this.vlf = setScale(vlf);
-    }
-
-    public void setLf(double lf) {
-        this.lf = setScale(lf);
-    }
-
-    public void setHf(double hf) {
-        this.hf = setScale(hf);
-    }
-
-    public void setTp(double tp) {
-        this.tp = setScale(tp);
-    }
-
-    public void setLfhf(double lfhf) {
-        this.lfhf = setScale(lfhf);
-    }
-
-    public void setLfn(double lfn) {
-        this.lfn = setScale(lfn);
-    }
-
-    public void setHfn(double hfn) {
-        this.hfn = setScale(hfn);
-    }
-
-    public void setLn_hf(double ln_hf) {
-        this.ln_hf = setScale(ln_hf);
-    }
-
-    public void setSdann1(double sdann1) {
-        this.sdann1 = setScale(sdann1);
-    }
-
-    public void setSdann2(double sdann2) {
-        this.sdann2 = setScale(sdann2);
-    }
-
-    public void setSdann5(double sdann5) {
-        this.sdann5 = setScale(sdann5);
     }
 
     public void setAf(double af) {
         this.af = setScale(af);
     }
 
-    public void setRT_Volt(double RT_Volt) {
-        this.RT_Volt = setScale(RT_Volt);
+    public void setT_area(double t_area) {
+        this.t_area = setScale(t_area);
     }
 
-    public void setRT_Interval(double RT_Interval) {
-        this.RT_Interval = setScale(RT_Interval);
+    public void setT_height(double t_height) {
+        this.t_height = setScale(t_height);
+    }
+
+    public void setPqr_angle(double pqr_angle) {
+        this.pqr_angle = setScale(pqr_angle);
+    }
+
+    public void setQrs_angle(double qrs_angle) {
+        this.qrs_angle = setScale(qrs_angle);
+    }
+
+    public void setRst_angle(double rst_angle) {
+        this.rst_angle = setScale(rst_angle);
+    }
+
+    public void setT_onsets(List<Integer> t_onsets) {
+        this.t_onsets = t_onsets;
+    }
+
+    public void setT_peaks(List<Integer> t_peaks) {
+        this.t_peaks = t_peaks;
+    }
+
+    public void setT_offsets(List<Integer> t_offsets) {
+        this.t_offsets = t_offsets;
+    }
+
+    public void setSignals(List<Double> signals) {
+        this.signals = signals;
     }
 
     public void setT_Med(double T_Med) {
@@ -327,3 +262,4 @@ public class HeartRateData {
     }
 
 }
+

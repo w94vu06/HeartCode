@@ -9,7 +9,6 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -22,14 +21,11 @@ import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 import com.example.newidentify.util.CleanFile;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class BeginActivity extends AppCompatActivity {
-    Button btn_signUp, btn_clear_lp4;
-    TextView txt_version;
+    public Button btn_signUp, btn_clear_lp4;
     public static Python py;
     public static PyObject pyObj;
 
@@ -37,17 +33,20 @@ public class BeginActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.begin_page);
-        btn_signUp = findViewById(R.id.btn_signUp);
-        btn_clear_lp4 = findViewById(R.id.btn_clear_lp4);
-        txt_version = findViewById(R.id.txt_version);
-        initPermission();
+        initButton();
+        initPython();
+        checkPermissions();
         checkStorageManagerPermission();//檢查儲存權限
-        Intent it = new Intent();
+    }
+
+    private void initButton() {
+        btn_signUp = findViewById(R.id.btn_signUp);
+        btn_clear_lp4 = findViewById(R.id.btn_clear_all_detect_file);
 
         btn_signUp.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                it.setClass(BeginActivity.this, MainActivity.class);
+                Intent it = new Intent().setClass(BeginActivity.this, MainActivity.class);
                 startActivity(it);
             }
         });
@@ -61,24 +60,18 @@ public class BeginActivity extends AppCompatActivity {
                 Toast.makeText(BeginActivity.this, "已清除量測檔案", Toast.LENGTH_SHORT).show();
             }
         });
+    }
 
-        //初始化python環境
+    private void initPython() {
+        //初始化Python
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
-
         py = Python.getInstance();
         pyObj = py.getModule("hrv_analysis");
-        String date = new SimpleDateFormat("'v'MM.dd",
-                Locale.getDefault()).format(System.currentTimeMillis());
-
-//        txt_version.setText(date);
     }
 
-    /**
-     * 檢查權限
-     **/
-    private void initPermission() {
+    private void checkPermissions() {
         List<String> mPermissionList = new ArrayList<>();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             mPermissionList.add(Manifest.permission.BLUETOOTH_SCAN);
@@ -97,7 +90,7 @@ public class BeginActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
         } else {
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setMessage("本程式需要您同意允許存取所有檔案權限");
+            builder.setMessage("本程式需要您存取所有檔案權限");
             builder.setPositiveButton("同意", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
@@ -108,6 +101,5 @@ public class BeginActivity extends AppCompatActivity {
             builder.show();
         }
     }
-
 
 }

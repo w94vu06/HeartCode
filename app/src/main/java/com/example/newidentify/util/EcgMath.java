@@ -60,9 +60,19 @@ public class EcgMath {
                 rightIndex++;
             }
 
+            // 防止計算結果為0
+            if (leftIndex == r_index || rightIndex == r_index) {
+                continue; // 忽略這些點
+            }
+
             // 計算並保存半高寬
             float halfWidth = rightIndex - leftIndex;
             halfWidths.add(halfWidth);
+        }
+
+        // 確保不返回0，至少返回一個合理的最小值
+        if (halfWidths.isEmpty()) {
+            return 0;
         }
 
         return averageArrayList((ArrayList<Float>) halfWidths);
@@ -83,6 +93,20 @@ public class EcgMath {
         }
         return sum / count;
     }
+
+    //List<Double> to ArrayList<Float>
+    public ArrayList<Float> listDoubleToArrayListFloat(List<Double> doubleList) {
+        if (doubleList == null) {
+            throw new IllegalArgumentException("Input list cannot be null");
+        }
+
+        ArrayList<Float> floatList = new ArrayList<>();
+        for (double value : doubleList) {
+            floatList.add((float) value);
+        }
+        return floatList;
+    }
+
 
     public double[] arrayListFloatToDoubleArray(ArrayList<Float> floatList) {
         if (floatList == null) {

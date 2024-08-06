@@ -357,24 +357,33 @@ public class FileMaker {
     public void writeVectorsToCSV(List<Double> registerVector1List, List<Double> registerVector2List, List<Double> registerVector3List, List<Double> loginVectorList) {
         String[] headers = {
                 "status",
+
                 "bpm",
                 "mean_nn",
+
                 "sdnn",
                 "sdsd",
                 "rmssd",
-                "pnn20",
-                "pnn50",
-                "hr_mad",
+
                 "sd1",
                 "sd2",
                 "sd1/sd2",
-//                "iqrnn",
-//                "ap_en",
+
                 "shan_en",
-//                "fuzzy_en",
                 "af",
-                "DiffSelf",
-                "R_Med", "HalfWidth","VectorDistance","threshold"};
+
+                "t_area",
+                "t_height",
+
+                "pqr_angle",
+                "qrs_angle",
+                "rst_angle",
+
+                "r_med",
+                "voltStd",
+                "halfWidth",
+                "distance",
+                "threshold"};
         String[] states = {"regi1", "regi2", "regi3", "login"};
         String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());

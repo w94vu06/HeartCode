@@ -124,6 +124,15 @@ public class CalculateDiffSelf extends Thread {
             return 9999f; // 或者拋出一個異常
         }
 
+        List<List<Float>> dfList = new ArrayList<>();
+
+        for (int i = 1; i < R_index.size(); i += 2) {
+            if (i + 2 < R_index.size()) {
+                List<Float> df = getReduceRR100(floats, R_index.get(i), R_index.get(i + 2));
+                dfList.add(df);
+            }
+        }
+
         List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
         List<Float> df2 = getReduceRR100(floats, R_index.get(7), R_index.get(9));
         List<Float> df3 = getReduceRR100(floats, R_index.get(4), R_index.get(6));

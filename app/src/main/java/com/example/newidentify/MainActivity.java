@@ -5,6 +5,7 @@ import static com.example.newidentify.util.ChartSetting.getStreamLP;
 import static java.lang.Math.abs;
 import static java.lang.Math.getExponent;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
@@ -15,18 +16,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
-import android.media.MediaScannerConnection;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -49,6 +47,7 @@ import com.github.mikephil.charting.listener.BarLineChartTouchListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -86,10 +85,10 @@ public class MainActivity extends AppCompatActivity {
 
     // UI 元素
     private Button btn_detect;
-    private Button btn_clean;
+    private Button btn_clear_registry;
     private Button btn_stop;
     private TextView txt_isMe;
-    private TextView txt_result;
+    private TextView txt_detect_result;
     private TextView txt_checkID_status;
     private TextView txt_checkID_result;
     public static TextView txt_BleStatus;
@@ -111,12 +110,14 @@ public class MainActivity extends AppCompatActivity {
     public CountDownTimer countDownTimer; // 倒數計時器
     boolean isCountDownRunning = false;
     boolean isMeasurementOver = false;
+
+    private static final int TOAST_DISPLAY_TIME = 5000;
     private static final int COUNTDOWN_INTERVAL = 1000;
     private static final int COUNTDOWN_TOTAL_TIME = 30000;
 
     public static LineChart lineChart;
     public static LineChart chart_df;
-    //    public static LineChart chart_df2;
+    public static LineChart chart_df2;
     public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
@@ -146,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        // 初始化全域變數
         global_activity = this;
 
         //初始化物件
@@ -157,17 +159,17 @@ public class MainActivity extends AppCompatActivity {
         chartSetting = new ChartSetting();
         lineChart = findViewById(R.id.linechart);
         chart_df = findViewById(R.id.chart_df);
-//        chart_df2 = findViewById(R.id.chart_df2);
+        chart_df2 = findViewById(R.id.chart_df2);
 
         initchart();//初始化圖表
         initObject();//初始化物件
+
         initDeviceDialog();//裝置選擇Dialog
         checkAndDisplayRegistrationStatus();//檢查註冊狀態
 
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
-
         py = Python.getInstance();
         pyObj = py.getModule("hrv_analysis");
     }
@@ -183,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (countDownTimer != null) {
-            stopALL();
+            stop_detection();
         }
     }
 
@@ -195,39 +197,22 @@ public class MainActivity extends AppCompatActivity {
             bt4.close();
         }
         unregisterReceiver(getReceiver);
-        stopALL();
+        stop_detection();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 取得應用程式專用的外部資料夾
-        File externalFilesDir = getExternalFilesDir(null);
-
-        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
-            // 列出所有文件
-            File[] files = externalFilesDir.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    // 檢查檔案名稱是否符合特定的前綴和後綴
-                    if (file.getName().endsWith(".lp4") && file.getName().startsWith("l_")) {
-                        // 刪除符合條件的文件
-                        boolean deleted = file.delete();
-                        if (!deleted) {
-                            Log.e("DeleteTempFiles", "Failed to delete file: " + file.getAbsolutePath());
-                        }
-                    }
-                }
-            }
-        }
         if (deviceDialog != null && deviceDialog.isShowing()) {
             deviceDialog.dismiss();
         }
     }
 
+    /**
+     * 註冊廣播過濾，用於接收藍芽連接狀態
+     */
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void initBroadcast() {
-        //註冊廣播過濾
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(BT4.BLE_CONNECTED);
         intentFilter.addAction(BT4.BLE_TRY_CONNECT);
@@ -270,50 +255,81 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initObject() {
-        btn_clean = findViewById(R.id.btn_clean);
-        btn_detect = findViewById(R.id.btn_detect);
-        btn_stop = findViewById(R.id.btn_stop);
         txt_isMe = findViewById(R.id.txt_isMe);
-        txt_result = findViewById(R.id.txt_result);
-        txt_countDown = findViewById(R.id.txt_countDown);
-        txt_BleStatus = findViewById(R.id.txt_BleStatus);
-        txt_BleStatus_battery = findViewById(R.id.txt_BleStatus_battery);
+        txt_detect_result = findViewById(R.id.txt_detect_result);
         txt_checkID_status = findViewById(R.id.txt_checkID_status);
         txt_checkID_result = findViewById(R.id.txt_checkID_result);
 
-        initBtn();
+        txt_countDown = findViewById(R.id.txt_countDown);
+        txt_BleStatus = findViewById(R.id.txt_BleStatus);
+        txt_BleStatus_battery = findViewById(R.id.txt_BleStatus_battery);
 
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/register_Andy");
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Andy");
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Aaron");
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_peggy");
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/login_Yu");
-//        initializeFileQueue(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/test_weight");
+        initBtn();
     }
 
     public void initBtn() {
+        btn_stop = findViewById(R.id.btn_stop);
+        btn_clear_registry = findViewById(R.id.btn_clear_registry);
+        btn_detect = findViewById(R.id.btn_detect);
+
         btn_stop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                stopALL();
-//                processNextFile();
+                stop_detection(); //停止量測
+                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/s");
             }
         });
 
-        btn_clean.setOnClickListener(new View.OnClickListener() {
+        btn_clear_registry.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 runOnUiThread(() -> {
                     tinyDB.clear();
                     ShowToast("已清除註冊檔案");
-                    txt_checkID_status.setText("尚未有註冊資料");
-                    txt_isMe.setText("");
-                    txt_checkID_result.setText("");
+
+                    resetUI();
                     cleanRegistrationData();
+
                     isFinishRegistered = false;
                 });
-
             }
+        });
+
+    }
+
+    // 初始化圖表
+    public void initchart() {
+        chartSetting.initchart(lineChart);
+        chartSet1.setColor(Color.BLACK);
+        chartSet1.setDrawCircles(false);
+        chartSet1.setDrawFilled(false);
+        chartSet1.setFillAlpha(0);
+        chartSet1.setCircleRadius(0);
+        chartSet1.setLineWidth((float) 1.5);
+        chartSet1.setDrawValues(false);
+        chartSet1.setDrawFilled(true);
+
+        float scaleX = lineChart.getScaleX();
+        if (scaleX == 1)
+            lineChart.zoomToCenter(5, 1f);
+        else {
+            BarLineChartTouchListener barLineChartTouchListener = (BarLineChartTouchListener) lineChart.getOnTouchListener();
+            barLineChartTouchListener.stopDeceleration();
+            lineChart.fitScreen();
+        }
+
+        chartSet1Entries.clear(); // 清除圖表數據
+        oldValue.clear(); // 清除圖表數據
+
+        lineChart.invalidate();
+    }
+
+    public void resetUI() {
+        runOnUiThread(() -> {
+            txt_isMe.setText("");
+            txt_detect_result.setText("");
+            txt_checkID_result.setText("");
+            txt_checkID_status.setText("");
         });
     }
 
@@ -328,43 +344,30 @@ public class MainActivity extends AppCompatActivity {
      **/
     public void initDeviceDialog() {
         deviceDialog.setContentView(R.layout.dialog_device);
-        // 初始化元件
-        RadioGroup devicesRadioGroup = deviceDialog.findViewById(R.id.devicesRadioGroup);
-        RadioButton radioButtonDevice1 = deviceDialog.findViewById(R.id.radioButtonDevice1);
-        RadioButton radioButtonDevice2 = deviceDialog.findViewById(R.id.radioButtonDevice2);
-        Button completeButton = deviceDialog.findViewById(R.id.completeButton);
         deviceDialog.setCancelable(false);
 
-        // 設置按鈕點擊監聽器
-        completeButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Handler batteryHandler = new Handler(Looper.getMainLooper());
-                // 在這裡處理完成按鈕的點擊事件
-                // 檢查哪個 RadioButton 被選中
-                int checkedRadioButtonId = devicesRadioGroup.getCheckedRadioButtonId();
+        RadioGroup devicesRadioGroup = deviceDialog.findViewById(R.id.devicesRadioGroup);
+        Button completeButton = deviceDialog.findViewById(R.id.completeButton);
 
-                if (checkedRadioButtonId == R.id.radioButtonDevice1) {
-                    bt4.deviceName = "CmateH";
-                    bt4.Bluetooth_init();
-                    deviceDialog.dismiss();
-
-                } else if (checkedRadioButtonId == R.id.radioButtonDevice2) {
-                    bt4.deviceName = "WTK230";
-                    bt4.Bluetooth_init();
-                    deviceDialog.dismiss();
-
-                    // 處理選中 Device 2 的邏輯
-                } else {
-                    // 提示用戶選擇一個裝置
-                    bt4.deviceName = "";
-                    Toast.makeText(global_activity, "請選擇一個裝置", Toast.LENGTH_SHORT).show();
-                }
+        completeButton.setOnClickListener(view -> {
+            int checkedRadioButtonId = devicesRadioGroup.getCheckedRadioButtonId();
+            if (checkedRadioButtonId == R.id.radioButtonDevice1) {
+                setDeviceNameAndInit("CmateH");
+            } else if (checkedRadioButtonId == R.id.radioButtonDevice2) {
+                setDeviceNameAndInit("WTK230");
+            } else {
+                bt4.deviceName = "";
+                Toast.makeText(global_activity, "請選擇一個裝置", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // 顯示對話框
         deviceDialog.show();
+    }
+
+    private void setDeviceNameAndInit(String deviceName) {
+        bt4.deviceName = deviceName;
+        bt4.Bluetooth_init();
+        deviceDialog.dismiss();
     }
 
     @Override
@@ -372,6 +375,9 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
+    /**
+     * 檢查註冊狀態
+     */
     public void checkAndDisplayRegistrationStatus() {
         registerData = tinyDB.getListString("registerData");
 
@@ -397,6 +403,7 @@ public class MainActivity extends AppCompatActivity {
                     double ch2 = 0;
                     ch2 = bt4.byteArrayToInt(new byte[]{result[4]}) * 128 + bt4.byteArrayToInt(new byte[]{result[5]});
                     ch2 = ch2 * 1.7;
+
                     double ch4 = getStreamLP((int) ch2);
 
                     if (ch4 >= 2500) {
@@ -455,79 +462,22 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 量測與畫圖
-     */
+
     @SuppressLint("HandlerLeak")
     public void startWaveMeasurement(View view) {
         bt4.Bluetooth_init();
 
-        if (bt4.isConnected) {
+        if (bt4.isConnected && !isCountDownRunning) {
             runOnUiThread(() -> {
-                chartSet1Entries.clear(); // 清除上次的數據
-                oldValue.clear(); // 清除上次的數據
-                txt_isMe.setText("");
-                txt_checkID_status.setText("");
+                resetUI();
                 initchart();
             });
-            if (!isCountDownRunning) {
-                isMeasurementOver = false;
-                startCountDown();
-                bt4.startWave(true, new Handler());
-            }
+            isMeasurementOver = false;
+            startCountDownTimer();
+            bt4.startWave(true, new Handler());
         } else {
             ShowToast("請先連接裝置");
         }
-    }
-
-    private void startCountDown() {
-        isCountDownRunning = true;
-        isMeasurementOver = false;
-
-        txt_result.setText("量測結果");
-        countDownHandler.postDelayed(new Runnable() {
-            private int presetTime = 5000;
-            private int remainingTime = COUNTDOWN_TOTAL_TIME;
-            boolean isToastShown = false;
-
-            @Override
-            public void run() {
-                if (!isToastShown) {
-                    Toast.makeText(global_activity, "請將手指放置於裝置上，量測馬上開始", Toast.LENGTH_LONG).show();
-                    isToastShown = true;
-                }
-                if (presetTime <= 0) {//倒數6秒結束才開始跑波
-                    bt4.isSixSecOver = true;
-                    if (remainingTime <= 0) {//結束的動作
-                        txt_countDown.setText("30");
-                        stopWaveMeasurement();
-                        isCountDownRunning = false;
-                        isMeasurementOver = true;
-                    } else {//秒數顯示
-                        txt_countDown.setText(String.valueOf(remainingTime / 1000));
-                        remainingTime -= COUNTDOWN_INTERVAL;
-                        countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
-                    }
-                } else {
-                    bt4.isSixSecOver = false;
-                    txt_countDown.setText(String.valueOf(presetTime / 1000));
-                    presetTime -= COUNTDOWN_INTERVAL;
-                    countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
-                }
-            }
-        }, COUNTDOWN_INTERVAL);
-    }
-
-    //把能停的都停下來
-    private void stopALL() {
-        if (isCountDownRunning) {
-            countDownHandler.removeCallbacksAndMessages(null); // 移除倒數
-            isCountDownRunning = false;
-            txt_countDown.setText("30");
-            stopWaveMeasurement();
-            btn_detect.setText("量測");
-        }
-
     }
 
     @SuppressLint("HandlerLeak")
@@ -545,6 +495,79 @@ public class MainActivity extends AppCompatActivity {
             });
         } else {
             ShowToast("尚未開始跑波");
+        }
+    }
+
+    private void startCountDownTimer() {
+        isCountDownRunning = true;
+        isMeasurementOver = false;
+
+        txt_detect_result.setText("量測結果");
+        countDownHandler.postDelayed(new CountDownRunnable(), COUNTDOWN_INTERVAL);
+    }
+
+    private class CountDownRunnable implements Runnable {
+        private int presetTime = TOAST_DISPLAY_TIME; //量測前倒數
+        private int remainingTime = COUNTDOWN_TOTAL_TIME; //總倒數時間
+        private boolean isToastShown = false;
+
+        @Override
+        public void run() {
+            if (!isToastShown) {
+                showToast();
+                isToastShown = true;
+            }
+
+            if (presetTime <= 0) {
+                startMeasurementCountdown();
+            } else {
+                updatePresetTimeCountdown();
+            }
+        }
+
+        private void showToast() {
+            Toast.makeText(global_activity, "請將手指放置於裝置上，量測馬上開始", Toast.LENGTH_LONG).show();
+        }
+
+        private void startMeasurementCountdown() {
+            bt4.isSixSecOver = true;
+            if (remainingTime <= 0) {
+                endMeasurement();
+            } else {
+                updateMeasurementCountdown();
+            }
+        }
+
+        private void endMeasurement() {
+            txt_countDown.setText("30");
+            stopWaveMeasurement();
+            isCountDownRunning = false;
+            isMeasurementOver = true;
+        }
+
+        private void updateMeasurementCountdown() {
+            txt_countDown.setText(String.valueOf(remainingTime / 1000));
+            remainingTime -= COUNTDOWN_INTERVAL;
+            countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
+        }
+
+        private void updatePresetTimeCountdown() {
+            bt4.isSixSecOver = false;
+            txt_countDown.setText(String.valueOf(presetTime / 1000));
+            presetTime -= COUNTDOWN_INTERVAL;
+            countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
+        }
+    }
+
+    /**
+     * 停止量測
+     */
+    private void stop_detection() {
+        if (isCountDownRunning) {
+            countDownHandler.removeCallbacksAndMessages(null); // 移除倒數
+            isCountDownRunning = false;
+            txt_countDown.setText("30");
+            stopWaveMeasurement();
         }
     }
 
@@ -573,7 +596,7 @@ public class MainActivity extends AppCompatActivity {
                     if (!bt4.file_data.isEmpty()) {
                         processLP4(bt4.file_data);
                     } else {
-                        runOnUiThread(() -> ShowToast("檔案大小為0"));
+                        ShowToast("檔案大小為0");
                     }
                     bt4.Delete_AllRecor(this);
                 }
@@ -588,72 +611,80 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void processLP4(ArrayList<Byte> file_data) {
-        String tempFilePath = null; // 用於保存生成的臨時文件路徑
+    private void processLP4(ArrayList<Byte> fileData) {
+        String tempFilePath = createTempFile(fileData);
+        if (tempFilePath != null) {
+            processTempFile(tempFilePath);
+        }
+    }
+
+    /**
+     * 建立臨時檔案
+     */
+    private String createTempFile(ArrayList<Byte> fileData) {
+        String tempFilePath = null;
         try {
-            // 格式化當前日期時間作為文件名一部分
             String date = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(System.currentTimeMillis());
-            String prefix = "l_" + date + "_888888_"; // 檔案前綴
-            String suffix = ".lp4"; // 檔案後綴
+            String prefix = "l_" + date + "_888888_";
+            String suffix = ".lp4";
 
-            // 在應用專用的外部文件夾中建立臨時文件
             File tempFile = File.createTempFile(prefix, suffix, getExternalFilesDir(null));
-            tempFilePath = tempFile.getAbsolutePath(); // 獲取臨時文件的完整路徑
+            tempFilePath = tempFile.getAbsolutePath();
 
-            // 將byte列表數據寫入臨時文件
-            fileMaker.saveByteArrayToFile(file_data, tempFile);
-
-            // 通知系統掃描新生成的文件
-            runOnUiThread(() -> {
-                MediaScannerConnection.scanFile(this, new String[]{tempFile.getAbsolutePath()},
-                        null, null);
-            });
+            fileMaker.saveByteArrayToFile(fileData, tempFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("TempFileCreationError", "臨時文件創建失敗", e);
         }
-        readLP4(tempFilePath);
+        return tempFilePath;
     }
 
-    private void readLP4(String tempFilePath) {
-        File file = new File(tempFilePath);
-        Log.d("path", "readLP4: " + tempFilePath);
-        if (!file.exists()) {
+    /**
+     * 將臨時檔案解碼並處理
+     */
+    private void processTempFile(String tempFilePath) {
+        if (fileExists(tempFilePath)) {
+            decodeEcgFile(tempFilePath);
+            String chaFilePath = tempFilePath.replace(".lp4", ".cha");
+            processChaFile(chaFilePath);
+        } else {
             Log.e("LP4FileNotFound", "LP4檔案不存在：" + tempFilePath);
-            return;
         }
-        // decpEcgFil將LP4檔案解碼為CHA格式的方法
-        decpEcgFile(tempFilePath);
-        readCHA(tempFilePath.replace(".lp4", ".cha"));
     }
 
-    public void readCHA(String chaFilePath) {
-        File chaFile = new File(chaFilePath);
-        if (!chaFile.exists()) {
-            Log.e("CHAFileNotFound", "CHA檔案不存在：" + chaFilePath);
-            return;
+    private boolean fileExists(String filePath) {
+        File file = new File(filePath);
+        return file.exists();
+    }
+
+    private void decodeEcgFile(String filePath) {
+        try {
+            decpEcgFile(filePath);
+        } catch (Exception e) {
+            Log.e("EcgFileDecodingError", "LP4檔案解碼失敗：" + filePath, e);
         }
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+    }
+
+    private void processChaFile(String chaFilePath) {
+        if (fileExists(chaFilePath)) {
+            new Thread(() -> {
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
                 rawEcgSignal = decodeCha.ecgSignal;
-//                String date = new SimpleDateFormat("yyyyMMddhhmmss",
-//                        Locale.getDefault()).format(System.currentTimeMillis());
-//                fileMaker.makeCSVDoubleArray(rawEcgSignal, date + "_rawEcgSignal.csv");
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        calculateWithPython(rawEcgSignal);
-                    }
-                }).start();
-            }
+                processEcgSignal(rawEcgSignal);
+            }).start();
+        } else {
+            Log.e("CHAFileNotFound", "CHA檔案不存在：" + chaFilePath);
+        }
+    }
+
+    private void processEcgSignal(double[] ecgSignal) {
+        new Thread(() -> {
+            calculateWithPython(ecgSignal);
         }).start();
     }
 
-
     public void calculateWithPython(double[] ecg_signal) {
-        if (ecg_signal == null || ecg_signal.length == 0 || ecg_signal.equals("NaN")) {
+        if (ecg_signal == null || ecg_signal.length == 0) {
             Log.e("EmptyDataList", "dataList有誤");
             return;
         }
@@ -665,11 +696,13 @@ public class MainActivity extends AppCompatActivity {
                     // 調用 Python 函數並獲取結果
                     ShowToast("計算中...");
                     startTime = System.currentTimeMillis(); // 紀錄開始時間
+
                     PyObject hrv_analysis = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
 
+                    String date = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(System.currentTimeMillis());
+                    fileMaker.makeCSVDoubleArray(ecg_signal, date + "_ecg_signal.csv");
+
                     getHRVFeature(hrv_analysis);
-
-
                 } catch (Exception e) {
                     Log.e("PythonError", "Exception type: " + e.getClass().getSimpleName());
                     Log.e("PythonError", "Exception message: " + e.getMessage());
@@ -677,7 +710,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            txt_result.setText("量測失敗");
+                            txt_detect_result.setText("量測失敗");
                         }
                     });
                 }
@@ -685,13 +718,18 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    /**
+     * 取得 HRV 特徵
+     */
     public void getHRVFeature(PyObject result) {
         long endTime = System.currentTimeMillis(); // 紀錄結束時間
         nk_process_time = (double) (endTime - startTime) / 1000; // 計算時間差
         Log.d("time", "nk_process_time: " + nk_process_time);
+
         PyObject hrv = result.asList().get(0);
         PyObject r_peaks = result.asList().get(1);
         PyObject r_value = result.asList().get(2);
+
         Log.d("getHRVData", "getHRVData: " + result);
         String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null").replaceAll("inf", "null");
 
@@ -701,12 +739,12 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    txt_result.setText("量測失敗");
+                    txt_detect_result.setText("量測失敗");
                 }
             });
             return;
         }
-
+        // 將 Python 返回的數據轉換為 Map
         Map<String, List<Integer>> rPeaksMap = gson.fromJson(r_peaks.toString(), new TypeToken<Map<String, List<Integer>>>() {
         }.getType());
         List<Integer> rPeaksList = rPeaksMap.get("r_peaks");
@@ -715,28 +753,39 @@ public class MainActivity extends AppCompatActivity {
         }.getType());
         List<Double> rValuesList = rValuesMap.get("r_values");
 
+        Type signalMapType = new TypeToken<Map<String, List<Double>>>() {
+        }.getType();
+        Map<String, List<Double>> signalMap = gson.fromJson(String.valueOf(result.asList().get(3)), signalMapType);
+
+        // 獲取 "ECG_Raw" 對應的 List<Double>
+        List<Double> signalMapList = signalMap.get("ECG_Raw");
+
+        heartRateData.setSignals(signalMapList);
+
         assert rPeaksList != null;
         assert rValuesList != null;
 
         calculateValues(rPeaksList, rValuesList);
     }
 
-    // 計算各項數據
+    /**
+     * 計算特徵
+     */
     public void calculateValues(List<Integer> r_indices, List<Double> r_values) {
         Collections.sort(r_indices);
-        // 檢查 R 波的數量是否足夠
         float diffSelf = calculateDiffSelf.calDiffSelf(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
+        float halfWidth = ecgMath.calculateHalfWidths(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
 
         heartRateData.setDiffSelf(diffSelf);
         heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
-        heartRateData.setHalfWidth(ecgMath.calculateHalfWidths(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices));
+        heartRateData.setHalfWidth(halfWidth);
         heartRateData.setVoltStd(EcgMath.calculateStandardDeviation(rawEcgSignal));
 
-        if (diffSelf == 9999f || diffSelf > 1.5) {
+        if (diffSelf == 9999f || Math.abs(diffSelf) > 1.5 || halfWidth == 0) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    txt_result.setText("訊號穩定度過差");
+                    txt_detect_result.setText("訊號穩定度過差");
                 }
             });
             return;
@@ -745,12 +794,17 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-//                chartSetting.markR(chart_df2, ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
+//                chartSetting.markR(chart_df2, ecgMath.listDoubleToArrayListFloat(heartRateData.getSignals()), r_indices);
+//                chartSetting.markRT(chart_df2, ecgMath.listDoubleToArrayListFloat(heartRateData.getSignals()), r_indices, heartRateData.getT_onsets(), heartRateData.getT_peaks(), heartRateData.getT_offsets());
+                chartSetting.markRT(chart_df2, ecgMath.doubleArrayToListFloat(rawEcgSignal), r_indices, heartRateData.getT_onsets(), heartRateData.getT_peaks(), heartRateData.getT_offsets());
                 setRegisterData();
             }
         });
     }
 
+    /**
+     * 設置註冊數據
+     */
     public void setRegisterData() {
         if (!isFinishRegistered) {
             if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 100) {
@@ -777,28 +831,38 @@ public class MainActivity extends AppCompatActivity {
         showDetectOnUI();
     }
 
+    /**
+     * 從 JSON 中獲取數據列表，並加進註冊數據
+     */
     public void addRegisterList() {
         JSONObject jsonObject = new JSONObject();
         try {
 
             jsonObject.put("bpm", heartRateData.getBpm());
             jsonObject.put("mean_nn", heartRateData.getMean_nn());
+
             jsonObject.put("sdnn", heartRateData.getSdnn());
             jsonObject.put("sdsd", heartRateData.getSdsd());
             jsonObject.put("rmssd", heartRateData.getRmssd());
-            jsonObject.put("pnn20", heartRateData.getPnn20());
-            jsonObject.put("pnn50", heartRateData.getPnn50());
-            jsonObject.put("hr_mad", heartRateData.getHrMad());
+
+//            jsonObject.put("pnn20", heartRateData.getPnn20());
+//            jsonObject.put("pnn50", heartRateData.getPnn50());
+//            jsonObject.put("hr_mad", heartRateData.getHrMad());
             jsonObject.put("sd1", heartRateData.getSd1());
             jsonObject.put("sd2", heartRateData.getSd2());
             jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
-//            jsonObject.put("iqrnn", heartRateData.getIqrnn());
-//            jsonObject.put("ap_en", heartRateData.getAp_en());
+
             jsonObject.put("shan_en", heartRateData.getShan_en());
-//            jsonObject.put("fuzzy_en", heartRateData.getFuzzy_en());
             jsonObject.put("af", heartRateData.getAf());
 
-            jsonObject.put("diffSelf", heartRateData.getDiffSelf());
+            jsonObject.put("t_area", heartRateData.getT_area());
+            jsonObject.put("t_height", heartRateData.getT_height());
+
+            jsonObject.put("pqr_angle", heartRateData.getPqr_angle());
+            jsonObject.put("qrs_angle", heartRateData.getQrs_angle());
+            jsonObject.put("rst_angle", heartRateData.getRst_angle());
+
+//            jsonObject.put("diffSelf", heartRateData.getDiffSelf());
             jsonObject.put("r_med", heartRateData.getR_Med());
             jsonObject.put("voltStd", heartRateData.getVoltStd());
             jsonObject.put("halfWidth", heartRateData.getHalfWidth());
@@ -833,7 +897,13 @@ public class MainActivity extends AppCompatActivity {
                             "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
                             "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
                             "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
-                            "AF: " + String.format("%.0f", heartRateData.getAf()) + "/" +
+                            "AF: " + String.format("%.2f", heartRateData.getAf()) + "/" +
+//                            "T_Area: " + String.format("%.2f", heartRateData.getT_area()) + "\n" +
+//                            "T_Height: " + String.format("%.2f", heartRateData.getT_height()) + "/" +
+                            "PQR_Angle: " + String.format("%.2f", heartRateData.getPqr_angle()) + "\n" +
+                            "QRS_Angle: " + String.format("%.2f", heartRateData.getQrs_angle()) + "/" +
+                            "RST_Angle: " + String.format("%.2f", heartRateData.getRst_angle()) + "\n" +
+
                             "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "\n" +
                             "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "/" +
                             "VoltStd: " + String.format("%.2f", heartRateData.getVoltStd()) + "\n" +
@@ -842,20 +912,42 @@ public class MainActivity extends AppCompatActivity {
                     s = "參數計算異常";
                     txt_isMe.setText("");
                 }
-                txt_result.setText(s);
-                txt_result.append("\n計算時間" + nk_process_time + "秒");
+                txt_detect_result.setText(s);
+                txt_detect_result.append("\n計算時間" + nk_process_time + "秒");
             } catch (Exception e) {
                 Log.e("showDetectOnUI", "showDetectOnUI: " + e);
             }
         });
     }
 
+    /**
+     * 歐式距離
+     */
     public void euclideanDistance() {
-        ArrayList<String> registerData = tinyDB.getListString("registerData");
+        List<Map<String, Double>> dataLists = getDataListsFromJson();
 
+        if (dataLists.size() < 4) {
+            Log.e("DataError", "註冊數據不足");
+            return;
+        }
+
+        Map<String, Double> registerVector1 = dataLists.get(0);
+        Map<String, Double> registerVector2 = dataLists.get(1);
+        Map<String, Double> registerVector3 = dataLists.get(2);
+        Map<String, Double> loginVector = dataLists.get(3);
+
+        double distance = calculateAverageDistance(registerVector1, registerVector2, registerVector3, loginVector);
+        double threshold = calculateDistanceThreshold(registerVector1, registerVector2, registerVector3);
+
+        displayResults(distance, threshold, loginVector, registerVector1, registerVector2, registerVector3);
+        saveResultsToFile(registerVector1, registerVector2, registerVector3, loginVector, distance, threshold);
+        updateRegisterData(dataLists);
+    }
+
+    private List<Map<String, Double>> getDataListsFromJson() {
+        ArrayList<String> registerData = tinyDB.getListString("registerData");
         List<Map<String, Double>> dataLists = new ArrayList<>();
 
-        // 解析 JSON 數據
         for (String jsonData : registerData) {
             JsonObject jsonObject = gson.fromJson(jsonData, JsonObject.class);
             Map<String, Double> dataMap = new LinkedHashMap<>();
@@ -867,78 +959,80 @@ public class MainActivity extends AppCompatActivity {
             }
             dataLists.add(dataMap);
         }
+        return dataLists;
+    }
 
-        // 提取向量
-        Map<String, Double> registerVector1 = dataLists.get(0);
-        Map<String, Double> registerVector2 = dataLists.get(1);
-        Map<String, Double> registerVector3 = dataLists.get(2);
-        Map<String, Double> loginVector = dataLists.get(3);
+    private double calculateAverageDistance(Map<String, Double> vector1, Map<String, Double> vector2, Map<String, Double> vector3, Map<String, Double> loginVector) {
+        double distance1 = calculateWeightedEuclideanDistance(vector1, loginVector);
+        double distance2 = calculateWeightedEuclideanDistance(vector2, loginVector);
+        double distance3 = calculateWeightedEuclideanDistance(vector3, loginVector);
+        return (distance1 + distance2 + distance3) / 3;
+    }
 
-        // 計算加權歐幾里得距離
-        double distance1 = calculateWeightedEuclideanDistance(registerVector1, loginVector);
-        double distance2 = calculateWeightedEuclideanDistance(registerVector2, loginVector);
-        double distance3 = calculateWeightedEuclideanDistance(registerVector3, loginVector);
-        double distance = (distance1 + distance2 + distance3) / 3;
-
-        // 設定閾值並進行比較
-        double distanceInside1 = calculateWeightedEuclideanDistance(registerVector1, registerVector2);
-        double distanceInside2 = calculateWeightedEuclideanDistance(registerVector2, registerVector3);
-        double distanceInside3 = calculateWeightedEuclideanDistance(registerVector1, registerVector3);
+    private double calculateDistanceThreshold(Map<String, Double> vector1, Map<String, Double> vector2, Map<String, Double> vector3) {
+        double distanceInside1 = calculateWeightedEuclideanDistance(vector1, vector2);
+        double distanceInside2 = calculateWeightedEuclideanDistance(vector2, vector3);
+        double distanceInside3 = calculateWeightedEuclideanDistance(vector1, vector3);
 
         double meanDistance = (distanceInside1 + distanceInside2 + distanceInside3) / 3;
-        double distanceThreshold = meanDistance * 1;
+
+        double distanceThreshold = Math.max(meanDistance, 110);// 設定閥值，小於110就設110
 
         Log.d("threshold_ori", "原來的閥值: " + meanDistance);
-        if (distanceThreshold < 110) {
-            distanceThreshold = 110;
-        }
+        return distanceThreshold;
+    }
 
-        double threshold = distanceThreshold; // 假設的閾值，根據實際需要調整
+    @SafeVarargs
+    private final void displayResults(double distance, double threshold, Map<String, Double> loginVector, Map<String, Double>... registerVectors) {
+        runOnUiThread(() -> {
+            txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", calculateWeightedEuclideanDistance(registerVectors[0], loginVector), calculateWeightedEuclideanDistance(registerVectors[1], loginVector), calculateWeightedEuclideanDistance(registerVectors[2], loginVector), distance));
+            txt_checkID_result.setText(String.format("界定值: %.5f", threshold));
+            if (distance <= threshold) {
+                txt_isMe.setText("本人");
+            } else {
+                txt_isMe.setText("非本人");
+            }
 
-        String s = "threshold: " + threshold + "\ndistance1: " + distance1 + "\ndistance2: " + distance2 + "\ndistance3: " + distance3;
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", distance1, distance2, distance3, distance));
-                txt_checkID_result.setText(String.format("界定值: %.5f", threshold));
-                if (distance <= threshold) {
-                    txt_isMe.setText("本人");
-                } else {
-                    txt_isMe.setText("非本人");
-                }
-
-                if (Math.abs(loginVector.get("r_med")) < 0.5) {
-                    txt_isMe.append("\n振幅過小!!!!");
-                }
+            if (Math.abs(loginVector.get("r_med")) < 0.5) {
+                txt_isMe.append("\n振幅過小!!!!");
             }
         });
+    }
 
-        //get Map value
-        List<Double> registerVector1List = getMapValue(registerVector1);
-        List<Double> registerVector2List = getMapValue(registerVector2);
-        List<Double> registerVector3List = getMapValue(registerVector3);
-        List<Double> loginVectorList = getMapValue(loginVector);
-        registerVector1List.add(distance1);
+    /**
+     * 將結果輸出成csv
+     */
+    private void saveResultsToFile(Map<String, Double> registerVector1, Map<String, Double> registerVector2, Map<String, Double> registerVector3, Map<String, Double> loginVector, double distance, double threshold) {
+        List<Double> registerVector1List = getMapValues(registerVector1);
+        List<Double> registerVector2List = getMapValues(registerVector2);
+        List<Double> registerVector3List = getMapValues(registerVector3);
+        List<Double> loginVectorList = getMapValues(loginVector);
+
+        registerVector1List.add(distance);
         registerVector1List.add(threshold);
 
-        registerVector2List.add(distance2);
-        registerVector3List.add(distance3);
-
+        registerVector2List.add(calculateWeightedEuclideanDistance(registerVector2, loginVector));
+        registerVector3List.add(calculateWeightedEuclideanDistance(registerVector3, loginVector));
         loginVectorList.add(distance);
+
         fileMaker.writeVectorsToCSV(registerVector1List, registerVector2List, registerVector3List, loginVectorList);
-        keepListIsThree(registerData, 3);
+    }
+
+    private void updateRegisterData(List<Map<String, Double>> dataLists) {
+        ArrayList<String> registerData = new ArrayList<>();
+        for (Map<String, Double> dataMap : dataLists) {
+            registerData.add(gson.toJson(dataMap));
+        }
+        keepRegisterListIsThree(registerData, 3);
         tinyDB.putListString("registerData", registerData);
     }
 
+    private List<Double> getMapValues(Map<String, Double> map) {
+        return new ArrayList<>(map.values());
+    }
+
     public double calculateWeightedEuclideanDistance(Map<String, Double> vector1, Map<String, Double> vector2) {
-        Map<String, Double> weights = new HashMap<>();
-        weights.put("mean_nn", 2.0);
-        weights.put("hr_mad", 2.0);
-        weights.put("sd2", 2.0);
-        weights.put("diffSelf", 2.0);
-//        weights.put("r_med", 1000.0);
-        weights.put("r_med", 10000.0);
+        Map<String, Double> weights = getStringDoubleMap();
 
         double sum = 0.0;
         for (String key : vector1.keySet()) {
@@ -962,51 +1056,35 @@ public class MainActivity extends AppCompatActivity {
         return Math.sqrt(sum);
     }
 
+    // 權重
+    private static @NonNull Map<String, Double> getStringDoubleMap() {
+        Map<String, Double> weights = new HashMap<>();
+        // 這些參數不應該為1，給予較高的權重
+        weights.put("sdnn", 3.0);
+        weights.put("sdsd", 3.0);
+        weights.put("rmssd", 3.0);
+        weights.put("sd1", 3.0);
+        weights.put("sd2", 3.0);
+        weights.put("t_area", 3.0);
+        weights.put("t_height", 3.0);
+        weights.put("voltStd", 5.0);
 
-    public void keepListIsThree(List<?> list, int size) {
+        // 給R_Med 高權重，但高權重會顯著影響結果
+        weights.put("r_med", 1000.0);
+        return weights;
+    }
+
+    /**
+     * 保持註冊數據只有3筆
+     */
+    public void keepRegisterListIsThree(List<?> list, int size) {
         while (list.size() > size) {
-            Log.d("keep", "keepListIsThree: " + list.size());
             list.remove(list.size() - 1);
         }
     }
 
-    public List<Double> getMapValue(Map<String, Double> map) {
-        List<Double> valueList = new ArrayList<>();
-        for (Map.Entry<String, Double> entry : map.entrySet()) {
-            String key = entry.getKey();
-            Double value = entry.getValue();
-            valueList.add(value);
-        }
-        return valueList;
-    }
-
-
-    public void initchart() {
-        chartSetting.initchart(lineChart);
-
-        chartSet1.setColor(Color.BLACK);
-        chartSet1.setDrawCircles(false);
-        chartSet1.setDrawFilled(false);
-        chartSet1.setFillAlpha(0);
-        chartSet1.setCircleRadius(0);
-        chartSet1.setLineWidth((float) 1.5);
-        chartSet1.setDrawValues(false);
-        chartSet1.setDrawFilled(true);
-
-        float scaleX = lineChart.getScaleX();
-        if (scaleX == 1)
-            lineChart.zoomToCenter(5, 1f);
-        else {
-            BarLineChartTouchListener barLineChartTouchListener = (BarLineChartTouchListener) lineChart.getOnTouchListener();
-            barLineChartTouchListener.stopDeceleration();
-            lineChart.fitScreen();
-        }
-
-        lineChart.invalidate();
-    }
-
     /**
-     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行readCHA操作。
+     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行processChaFile操作。
      */
 
     private Queue<File> fileQueue = new ArrayDeque<>();
@@ -1049,9 +1127,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void processFile(File file) {
-        readCHA(file.getAbsolutePath());
+        processChaFile(file.getAbsolutePath());
     }
 
     public void processAllCHAFilesInDirectory(String directoryPath) {
@@ -1085,8 +1162,8 @@ public class MainActivity extends AppCompatActivity {
 
             // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
             if (file.isFile() && (file.getName().endsWith(".cha") || file.getName().endsWith(".CHA"))) {
-                // 對每個CHA檔案執行readCHA操作
-                readCHA(file.getAbsolutePath());
+                // 對每個CHA檔案執行processChaFile操作
+                processChaFile(file.getAbsolutePath());
             }
         }
     }
@@ -1102,6 +1179,5 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }//ShowToast
-
 
 }

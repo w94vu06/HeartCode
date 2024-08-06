@@ -22,7 +22,6 @@ public class DecodeCha extends Thread {
     public double[] ecgSignal;
     private static final String TAG = "DecodeCha";
 
-    //處理CHA
     public DecodeCha(String filePath) {
         this.filePath = filePath;
     }
@@ -30,8 +29,9 @@ public class DecodeCha extends Thread {
     @Override
     public void run() {
         File chaFile = new File(filePath);
+        // 檢查CHA檔案是否存在
         if (!chaFile.exists()) {
-            Log.e(TAG, "run: " + "CHA file not exist");
+            Log.e(TAG, "DecodeCha: " + "CHA file not exist");
             return;
         }
         super.run();
@@ -122,6 +122,7 @@ public class DecodeCha extends Thread {
         }
     }
 
+    // 解析CHA檔案
     public void oneCellData(byte[] cha, int len, int c) {
         ArrayList<String> onecell = new ArrayList();
         for (int i = 0; i < 64; i++) {
@@ -164,6 +165,7 @@ public class DecodeCha extends Thread {
         cell = new CellData(len, newCell, spv, dataV);
     }
 
+    //拿到cha檔案的長度
     public static int len(String path, char[] a) {
         File f = new File(path);
         try {
@@ -184,6 +186,7 @@ public class DecodeCha extends Thread {
         return 0;
     }
 
+    // 讀取CHA檔案
     public static byte[] readFromByteFile(String pathname) {
         File filename = new File(pathname);
         try {

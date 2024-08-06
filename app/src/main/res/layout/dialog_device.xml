@@ -43,15 +43,8 @@
             android:layout_height="wrap_content"
             android:text="WTK230"/>
 
-        <!-- RadioButton for Device 2 -->
-<!--        <RadioButton-->
-<!--            android:id="@+id/radioButtonDevice3"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:text="L3550"/>-->
     </RadioGroup>
 
-    <!-- Button -->
     <Button
         android:id="@+id/completeButton"
         android:layout_width="match_parent"
