@@ -869,8 +869,6 @@ Java_com_example_newidentify_MainActivity_anaEcgFile(JNIEnv *env,  jobject /* th
     //strcpy ( inCHAFileName, "20230319185544_032852" );
     //strcpy ( inCHAFileName, "20230319183235_029924" );
 
-
-
     // For debug
     inPageN = 1;
     leadN = 1;

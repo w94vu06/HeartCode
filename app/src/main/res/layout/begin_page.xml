@@ -7,6 +7,19 @@
     android:gravity="center"
     android:orientation="vertical">
 
+
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MFCC_生物個體辨識"
+        android:textSize="@dimen/dp_18">
+    </TextView>
+
+    <Space
+        android:layout_width="@dimen/dp_50"
+        android:layout_height="@dimen/dp_50"/>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -67,7 +80,7 @@
         android:id="@+id/txt_version"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="v08.06"
+        android:text="v08.20.mfcc"
         />
 
 </LinearLayout>

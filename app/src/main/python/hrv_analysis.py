@@ -27,7 +27,7 @@ def hrv_analysis(data, sampling_rate):
         signals, info = nk.ecg_process(data_np, sampling_rate=sampling_rate)
         ecg_signal = signals["ECG_Clean"]
         rpeaks = info["ECG_R_Peaks"]
-        signal_delineated, waves_delineated = nk.ecg_delineate(
+        waves_delineated = nk.ecg_delineate(
             ecg_signal, rpeaks, sampling_rate=sampling_rate, method="cwt" , scale=0.5
         )
 

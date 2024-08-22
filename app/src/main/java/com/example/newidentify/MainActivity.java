@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
 import android.view.View;
@@ -31,6 +32,8 @@ import android.widget.Toast;
 
 import com.chaquo.python.PyObject;
 import com.example.newidentify.bluetooth.BT4;
+import com.example.newidentify.mfcc.MFCCProcess;
+import com.example.newidentify.util.ReadCSV;
 import com.example.newidentify.process.HeartRateData;
 import com.example.newidentify.util.ChartSetting;
 import com.example.newidentify.util.CleanFile;
@@ -38,7 +41,7 @@ import com.example.newidentify.util.EcgMath;
 import com.example.newidentify.util.TinyDB;
 import com.example.newidentify.process.DecodeCha;
 import com.example.newidentify.util.FileMaker;
-import com.example.newidentify.process.CalculateDiffSelf;
+import com.example.newidentify.process.CalculateDiffMean;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -51,6 +54,7 @@ import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -87,10 +91,10 @@ public class MainActivity extends AppCompatActivity {
     private Button btn_detect;
     private Button btn_clear_registry;
     private Button btn_stop;
-    private TextView txt_isMe;
-    private TextView txt_detect_result;
-    private TextView txt_checkID_status;
-    private TextView txt_checkID_result;
+    public static TextView txt_isMe;
+    public static TextView txt_detect_result;
+    public static TextView txt_checkID_status;
+    public static TextView txt_checkID_result;
     public static TextView txt_BleStatus;
     public static TextView txt_BleStatus_battery;
 
@@ -120,23 +124,24 @@ public class MainActivity extends AppCompatActivity {
     public static LineChart chart_df2;
     public static LineDataSet chartSet1 = new LineDataSet(null, "");
     private ChartSetting chartSetting;
-    public static ArrayList<Entry> chartSet1Entries = new ArrayList<Entry>();
-    public static ArrayList<Double> oldValue = new ArrayList<Double>();
+    public static ArrayList<Entry> chartSet1Entries = new ArrayList<>();
+    public static ArrayList<Double> oldValue = new ArrayList<>();
 
-    private CalculateDiffSelf calculateDiffSelf;
+    private CalculateDiffMean calculateDiffMean;
     private EcgMath ecgMath = new EcgMath();
     public CleanFile cleanFile;
     private FileMaker fileMaker = new FileMaker(this);
     public double[] rawEcgSignal;
 
     private ArrayList<String> registerData = new ArrayList<>();
+    private ArrayList<ArrayList<double[]>> mfccArrayList = new ArrayList<>();
 
     // Python 相關變數
     public static Python py;
     public static PyObject pyObj;
-    public double nk_process_time; // 計算NK2計算時間
-    public long startTime; // 開始時間
 
+    private Queue<File> fileQueue = new ArrayDeque<>();
+    private Set<String> processedFiles = new HashSet<>();
 
     static {
         System.loadLibrary("newidentify");
@@ -154,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
         bt4 = new BT4(global_activity);
         tinyDB = new TinyDB(global_activity);
         deviceDialog = new Dialog(global_activity);
-        calculateDiffSelf = new CalculateDiffSelf();
+        calculateDiffMean = new CalculateDiffMean();
         cleanFile = new CleanFile();
         chartSetting = new ChartSetting();
         lineChart = findViewById(R.id.linechart);
@@ -163,15 +168,13 @@ public class MainActivity extends AppCompatActivity {
 
         initchart();//初始化圖表
         initObject();//初始化物件
-
         initDeviceDialog();//裝置選擇Dialog
-        checkAndDisplayRegistrationStatus();//檢查註冊狀態
 
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
         py = Python.getInstance();
-        pyObj = py.getModule("hrv_analysis");
+        pyObj = py.getModule("nk2_process");
     }
 
     @Override
@@ -179,6 +182,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         initBroadcast();
         setScreenOn();
+        checkAndDisplayRegistrationStatus();//檢查註冊狀態
     }
 
     @Override
@@ -276,7 +280,18 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 stop_detection(); //停止量測
-                processAllCHAFilesInDirectory(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testIdentifyApp" + "/s");
+
+                HandlerThread handlerThread = new HandlerThread("MFCCThread");
+                handlerThread.start();
+                Handler handler = new Handler(handlerThread.getLooper());
+
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        processChaFile(Environment.getExternalStorageDirectory().getAbsolutePath() + "/l_20240821140649_888888_1187332922578169732.cha");
+//                        calculateMFCCFile(Environment.getExternalStorageDirectory().getAbsolutePath() + "/20240718161704_ecg_signal.csv");
+                    }
+                });
             }
         });
 
@@ -288,6 +303,8 @@ public class MainActivity extends AppCompatActivity {
                     ShowToast("已清除註冊檔案");
 
                     resetUI();
+                    chart_df.clear();
+                    chart_df2.clear();
                     cleanRegistrationData();
 
                     isFinishRegistered = false;
@@ -337,6 +354,9 @@ public class MainActivity extends AppCompatActivity {
         // 將註冊標準值清空並保存到 TinyDB
         registerData.clear();
         tinyDB.putListString("registerData", registerData);
+
+        mfccArrayList.clear();
+        tinyDB.putDoubleArrayListArray("mfccArrayList", mfccArrayList);
     }
 
     /**
@@ -379,19 +399,28 @@ public class MainActivity extends AppCompatActivity {
      * 檢查註冊狀態
      */
     public void checkAndDisplayRegistrationStatus() {
-        registerData = tinyDB.getListString("registerData");
+        //確認MFCC註冊狀態
+        ArrayList<double[]> registeredData = new ArrayList<>();// 讀取註冊資料
+        registeredData.add(tinyDB.getDoubleArray("mfccRegiList1"));
+        registeredData.add(tinyDB.getDoubleArray("mfccRegiList2"));
+        registeredData.add(tinyDB.getDoubleArray("mfccRegiList3"));
+        registeredData.add(tinyDB.getDoubleArray("mfccRegiList4"));
 
-        if (registerData.isEmpty()) {
-            Log.d("HRVList", "registerData.size: " + registerData.size());
-            txt_checkID_status.setText("尚未有註冊資料");
+        if (registeredData.get(0) != null) {
+            mfccArrayList.add(registeredData);
+            txt_checkID_status.setText("註冊完成");
+            runOnUiThread(() -> {
+                double[] regiDrawList1 = tinyDB.getDoubleArray("mfccDrawList1");
+                double[] regiDrawList2 = tinyDB.getDoubleArray("mfccDrawList2");
+                double[] regiDrawList3 = tinyDB.getDoubleArray("mfccDrawList3");
+                double[] regiDrawList4 = tinyDB.getDoubleArray("mfccDrawList4");
+
+                chartSetting.overlapArrayChart(chart_df, regiDrawList1, regiDrawList2, regiDrawList3, regiDrawList4);
+                chartSetting.setOverlapChartDescription(chart_df, "註冊MFCC圖");
+            });
         } else {
-            txt_checkID_status.setText("註冊所需檔案(" + registerData.size() + "/3)");
-            if (registerData.size() >= 3) {
-                isFinishRegistered = true;
-                txt_checkID_status.setText("註冊完成");
-            }
+            txt_checkID_status.setText("尚未有註冊資料");
         }
-
     }
 
     public static void DrawChart(byte[] result) {
@@ -401,6 +430,7 @@ public class MainActivity extends AppCompatActivity {
                 public void run() {
                     for (int i = 0; i < result.length; i++) ;
                     double ch2 = 0;
+
                     ch2 = bt4.byteArrayToInt(new byte[]{result[4]}) * 128 + bt4.byteArrayToInt(new byte[]{result[5]});
                     ch2 = ch2 * 1.7;
 
@@ -438,7 +468,7 @@ public class MainActivity extends AppCompatActivity {
                         oldValue = temp_old;
                     }
 
-                    oldValue.add((double) ch4);
+                    oldValue.add(ch4);
 
                     double nvalue = (oldValue.get(oldValue.size() - 1));
 
@@ -458,7 +488,7 @@ public class MainActivity extends AppCompatActivity {
             });
 
         } catch (Exception ex) {
-//            Log.d("wwwww", "eeeeeerrr = " + ex.toString());
+            Log.e("DrawChartError", "繪製圖表時出錯", ex);
         }
     }
 
@@ -470,6 +500,7 @@ public class MainActivity extends AppCompatActivity {
         if (bt4.isConnected && !isCountDownRunning) {
             runOnUiThread(() -> {
                 resetUI();
+                chart_df2.clear();
                 initchart();
             });
             isMeasurementOver = false;
@@ -530,7 +561,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void startMeasurementCountdown() {
-            bt4.isSixSecOver = true;
+            bt4.is5SecOver = true;
             if (remainingTime <= 0) {
                 endMeasurement();
             } else {
@@ -552,16 +583,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void updatePresetTimeCountdown() {
-            bt4.isSixSecOver = false;
+            bt4.is5SecOver = false;
             txt_countDown.setText(String.valueOf(presetTime / 1000));
             presetTime -= COUNTDOWN_INTERVAL;
             countDownHandler.postDelayed(this, COUNTDOWN_INTERVAL);
         }
     }
 
-    /**
-     * 停止量測
-     */
     private void stop_detection() {
         if (isCountDownRunning) {
             countDownHandler.removeCallbacksAndMessages(null); // 移除倒數
@@ -669,426 +697,174 @@ public class MainActivity extends AppCompatActivity {
             new Thread(() -> {
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
+
                 rawEcgSignal = decodeCha.ecgSignal;
-                processEcgSignal(rawEcgSignal);
+                calculateMFCC(rawEcgSignal);
             }).start();
         } else {
             Log.e("CHAFileNotFound", "CHA檔案不存在：" + chaFilePath);
         }
     }
 
-    private void processEcgSignal(double[] ecgSignal) {
-        new Thread(() -> {
-            calculateWithPython(ecgSignal);
-        }).start();
+    public void calculateMFCCFile(String filePath) {
+        ReadCSV csv = new ReadCSV();
+        File csvFile = new File(filePath);
+
+        try {
+            // 取得MFCC特徵列表
+            double[] mfccCSV = csv.processCSV(csvFile);
+            calculateMFCC(mfccCSV);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    public void calculateWithPython(double[] ecg_signal) {
-        if (ecg_signal == null || ecg_signal.length == 0) {
-            Log.e("EmptyDataList", "dataList有誤");
-            return;
+    public void calculateMFCC(double[] doubles) {
+        ArrayList<ArrayList<float[]>> regiList = tinyDB.getFloatArrayListArray("mfccArrayList");
+
+        if (regiList.size() < 2) {
+            registerMFCC(doubles);
+        } else {
+            loginMFCC(doubles);
         }
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // 獲取 Python 實例和模塊
-                try {
-                    // 調用 Python 函數並獲取結果
-                    ShowToast("計算中...");
-                    startTime = System.currentTimeMillis(); // 紀錄開始時間
+    }
 
-                    PyObject hrv_analysis = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+    public void registerMFCC(double[] doubles) {
+        MFCCProcess MFCCProcess = new MFCCProcess();
+        // 註冊資料
+        ArrayList<double[]> mfccRegiList = MFCCProcess.mfccProcess(doubles);
+        mfccArrayList.add(mfccRegiList);
 
-                    String date = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(System.currentTimeMillis());
-                    fileMaker.makeCSVDoubleArray(ecg_signal, date + "_ecg_signal.csv");
+        if (!mfccArrayList.isEmpty()) {
 
-                    getHRVFeature(hrv_analysis);
-                } catch (Exception e) {
-                    Log.e("PythonError", "Exception type: " + e.getClass().getSimpleName());
-                    Log.e("PythonError", "Exception message: " + e.getMessage());
-                    Log.e("PythonError", "Stack trace: ", e);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            txt_detect_result.setText("量測失敗");
-                        }
-                    });
-                }
+            tinyDB.putDoubleArrayListArray("mfccArrayList", mfccArrayList);
+
+            tinyDB.putDoubleArray("mfccRegiList1", mfccRegiList.get(0));
+            tinyDB.putDoubleArray("mfccRegiList2", mfccRegiList.get(1));
+            tinyDB.putDoubleArray("mfccRegiList3", mfccRegiList.get(2));
+            tinyDB.putDoubleArray("mfccRegiList4", mfccRegiList.get(3));
+
+            tinyDB.putDoubleArray("mfccDrawList1", mfccRegiList.get(4));
+            tinyDB.putDoubleArray("mfccDrawList2", mfccRegiList.get(5));
+            tinyDB.putDoubleArray("mfccDrawList3", mfccRegiList.get(6));
+            tinyDB.putDoubleArray("mfccDrawList4", mfccRegiList.get(7));
+
+            double[] savedData = tinyDB.getDoubleArray("mfccRegiList1");
+            double[] savedData1 = tinyDB.getDoubleArray("mfccRegiList2");
+            double[] savedData2 = tinyDB.getDoubleArray("mfccRegiList3");
+            double[] savedData3 = tinyDB.getDoubleArray("mfccRegiList4");
+            Log.d("Debug", "Saved Data: " + Arrays.toString(mfccRegiList.get(0)));
+            Log.d("Debug", "Retrieved Data: " + Arrays.toString(savedData));
+
+            // 檢查兩者是否相等
+            if (Arrays.equals(mfccRegiList.get(0), savedData)) {
+                Log.d("Debug", "Data is consistent");
+            } else {
+                Log.d("Debug", "Data mismatch detected");
             }
-        }).start();
-    }
 
-    /**
-     * 取得 HRV 特徵
-     */
-    public void getHRVFeature(PyObject result) {
-        long endTime = System.currentTimeMillis(); // 紀錄結束時間
-        nk_process_time = (double) (endTime - startTime) / 1000; // 計算時間差
-        Log.d("time", "nk_process_time: " + nk_process_time);
+            if (Arrays.equals(mfccRegiList.get(1), savedData1)) {
+                Log.d("Debug", "Data1 is consistent");
+            } else {
+                Log.d("Debug", "Data1 mismatch detected");
+            }
 
-        PyObject hrv = result.asList().get(0);
-        PyObject r_peaks = result.asList().get(1);
-        PyObject r_value = result.asList().get(2);
+            if (Arrays.equals(mfccRegiList.get(2), savedData2)) {
+                Log.d("Debug", "Data2 is consistent");
+            } else {
+                Log.d("Debug", "Data2 mismatch detected");
+            }
 
-        Log.d("getHRVData", "getHRVData: " + result);
-        String hrvJsonString = hrv.toString().replaceAll("nan", "null").replaceAll("masked", "null").replaceAll("inf", "null");
+            if (Arrays.equals(mfccRegiList.get(3), savedData3)) {
+                Log.d("Debug", "Data3 is consistent");
+            } else {
+                Log.d("Debug", "Data3 mismatch detected");
+            }
 
-        heartRateData = gson.fromJson(hrvJsonString, HeartRateData.class);
-
-        if (heartRateData.getBpm() == 0.0) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    txt_detect_result.setText("量測失敗");
-                }
-            });
-            return;
-        }
-        // 將 Python 返回的數據轉換為 Map
-        Map<String, List<Integer>> rPeaksMap = gson.fromJson(r_peaks.toString(), new TypeToken<Map<String, List<Integer>>>() {
-        }.getType());
-        List<Integer> rPeaksList = rPeaksMap.get("r_peaks");
-
-        Map<String, List<Double>> rValuesMap = gson.fromJson(r_value.toString(), new TypeToken<Map<String, List<Double>>>() {
-        }.getType());
-        List<Double> rValuesList = rValuesMap.get("r_values");
-
-        Type signalMapType = new TypeToken<Map<String, List<Double>>>() {
-        }.getType();
-        Map<String, List<Double>> signalMap = gson.fromJson(String.valueOf(result.asList().get(3)), signalMapType);
-
-        // 獲取 "ECG_Raw" 對應的 List<Double>
-        List<Double> signalMapList = signalMap.get("ECG_Raw");
-
-        heartRateData.setSignals(signalMapList);
-
-        assert rPeaksList != null;
-        assert rValuesList != null;
-
-        calculateValues(rPeaksList, rValuesList);
-    }
-
-    /**
-     * 計算特徵
-     */
-    public void calculateValues(List<Integer> r_indices, List<Double> r_values) {
-        Collections.sort(r_indices);
-        float diffSelf = calculateDiffSelf.calDiffSelf(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
-        float halfWidth = ecgMath.calculateHalfWidths(ecgMath.doubleArrayToArrayListFloat(rawEcgSignal), r_indices);
-
-        heartRateData.setDiffSelf(diffSelf);
-        heartRateData.setR_Med(ecgMath.calculateMedian(ecgMath.listDoubleToListFloat(r_values)));
-        heartRateData.setHalfWidth(halfWidth);
-        heartRateData.setVoltStd(EcgMath.calculateStandardDeviation(rawEcgSignal));
-
-        if (diffSelf == 9999f || Math.abs(diffSelf) > 1.5 || halfWidth == 0) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    txt_detect_result.setText("訊號穩定度過差");
-                }
-            });
-            return;
+        } else {
+            txt_checkID_status.setText("註冊失敗");
+            Log.e("mfcc", "registerMFCC: 註冊失敗");
         }
 
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-//                chartSetting.markR(chart_df2, ecgMath.listDoubleToArrayListFloat(heartRateData.getSignals()), r_indices);
-//                chartSetting.markRT(chart_df2, ecgMath.listDoubleToArrayListFloat(heartRateData.getSignals()), r_indices, heartRateData.getT_onsets(), heartRateData.getT_peaks(), heartRateData.getT_offsets());
-                chartSetting.markRT(chart_df2, ecgMath.doubleArrayToListFloat(rawEcgSignal), r_indices, heartRateData.getT_onsets(), heartRateData.getT_peaks(), heartRateData.getT_offsets());
-                setRegisterData();
-            }
-        });
-    }
-
-    /**
-     * 設置註冊數據
-     */
-    public void setRegisterData() {
-        if (!isFinishRegistered) {
-            if (Math.abs(heartRateData.getDiffSelf()) < 1 && heartRateData.getBpm() < 125 && heartRateData.getRmssd() < 100) {
-                addRegisterList();
-                if (registerData.size() == 3) {
-                    isFinishRegistered = true;
+                try {
                     txt_checkID_status.setText("註冊完成");
-                    txt_isMe.setText("量測成功!");
+                    chartSetting.overlapArrayChart(chart_df, mfccRegiList.get(4), mfccRegiList.get(5), mfccRegiList.get(6), mfccRegiList.get(7));
+                    chartSetting.setOverlapChartDescription(chart_df, "註冊MFCC圖");
+                } catch (Exception e) {
+                    Log.d("mfcc", "registerMFCC: " + e);
+                    txt_detect_result.setText("MFCC計算失敗");
                 }
-                if (registerData.size() < 3) {
-                    txt_checkID_status.setText("註冊還需: (" + (registerData.size()) + "/3)");
-                    txt_isMe.setText("量測成功!");
-                }
-            } else {
-                txt_isMe.setText("參數不在範圍內!");
-                txt_checkID_status.setText("註冊還需: (" + registerData.size() + "/3)");
             }
-        } else if (heartRateData.getBpm() < 125) {
-            addRegisterList();
-            if (registerData.size() >= 4) {
-                euclideanDistance();
-            }
-        }
-        showDetectOnUI();
+        });
     }
 
-    /**
-     * 從 JSON 中獲取數據列表，並加進註冊數據
-     */
-    public void addRegisterList() {
-        JSONObject jsonObject = new JSONObject();
+    public void loginMFCC(double[] doubles) {
+        MFCCProcess mfccProcess = new MFCCProcess();
+        double distance = 9999;
+        ArrayList<double[]> mfccLoginList = mfccProcess.mfccProcess(doubles);
         try {
+            ArrayList<double[]> registeredData = new ArrayList<>();// 第一筆為註冊資料
+            registeredData.add(tinyDB.getDoubleArray("mfccRegiList1"));
+            registeredData.add(tinyDB.getDoubleArray("mfccRegiList2"));
+            registeredData.add(tinyDB.getDoubleArray("mfccRegiList3"));
+            registeredData.add(tinyDB.getDoubleArray("mfccRegiList4"));
 
-            jsonObject.put("bpm", heartRateData.getBpm());
-            jsonObject.put("mean_nn", heartRateData.getMean_nn());
+            ArrayList<double[]> loginData = new ArrayList<>(); // 第二筆為登入資料
+            loginData.add(mfccLoginList.get(0));
+            loginData.add(mfccLoginList.get(1));
+            loginData.add(mfccLoginList.get(2));
+            loginData.add(mfccLoginList.get(3));
 
-            jsonObject.put("sdnn", heartRateData.getSdnn());
-            jsonObject.put("sdsd", heartRateData.getSdsd());
-            jsonObject.put("rmssd", heartRateData.getRmssd());
+            // 計算歐式距離
+            distance = mfccProcess.euclideanDistanceProcessor(registeredData, loginData);
 
-//            jsonObject.put("pnn20", heartRateData.getPnn20());
-//            jsonObject.put("pnn50", heartRateData.getPnn50());
-//            jsonObject.put("hr_mad", heartRateData.getHrMad());
-            jsonObject.put("sd1", heartRateData.getSd1());
-            jsonObject.put("sd2", heartRateData.getSd2());
-            jsonObject.put("sd1/sd2", heartRateData.getSd1sd2());
-
-            jsonObject.put("shan_en", heartRateData.getShan_en());
-            jsonObject.put("af", heartRateData.getAf());
-
-            jsonObject.put("t_area", heartRateData.getT_area());
-            jsonObject.put("t_height", heartRateData.getT_height());
-
-            jsonObject.put("pqr_angle", heartRateData.getPqr_angle());
-            jsonObject.put("qrs_angle", heartRateData.getQrs_angle());
-            jsonObject.put("rst_angle", heartRateData.getRst_angle());
-
-//            jsonObject.put("diffSelf", heartRateData.getDiffSelf());
-            jsonObject.put("r_med", heartRateData.getR_Med());
-            jsonObject.put("voltStd", heartRateData.getVoltStd());
-            jsonObject.put("halfWidth", heartRateData.getHalfWidth());
-
-            // 添加到 registerData
-            registerData.add(jsonObject.toString());
-        } catch (JSONException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            Log.d("mfcc", "loginMFCC: " + e);
         }
 
-        if (registerData.size() > 4) {
-            registerData.remove(3);
-        }
-        tinyDB.putListString("registerData", registerData);
+        double finalDistance = distance;
+        showMFCCResult(finalDistance, mfccLoginList);
     }
 
-    public void showDetectOnUI() {
-        runOnUiThread(() -> {
-            try {
-                String s = "";
-                if (heartRateData.getBpm() < 125) {
-                    s = "當下量測\n" +
-                            "BPM: " + String.format("%.2f", heartRateData.getBpm()) + "/" +
-                            "MEANNN: " + String.format("%.2f", heartRateData.getMean_nn()) + "\n" +
-                            "SDNN: " + String.format("%.2f", heartRateData.getSdnn()) + "/" +
-                            "SDSD: " + String.format("%.2f", heartRateData.getSdsd()) + "\n" +
-                            "RMSSD: " + String.format("%.2f", heartRateData.getRmssd()) + "/" +
-                            "PNN20: " + String.format("%.2f", heartRateData.getPnn20()) + "\n" +
-                            "PNN50: " + String.format("%.2f", heartRateData.getPnn50()) + "/" +
-                            "HR_MAD: " + String.format("%.2f", heartRateData.getHrMad()) + "\n" +
-                            "SD1: " + String.format("%.2f", heartRateData.getSd1()) + "/" +
-                            "SD2: " + String.format("%.2f", heartRateData.getSd2()) + "\n" +
-                            "SD1/SD2: " + String.format("%.2f", heartRateData.getSd1sd2()) + "/" +
-                            "SHAN_EN: " + String.format("%.2f", heartRateData.getShan_en()) + "\n" +
-                            "AF: " + String.format("%.2f", heartRateData.getAf()) + "/" +
-//                            "T_Area: " + String.format("%.2f", heartRateData.getT_area()) + "\n" +
-//                            "T_Height: " + String.format("%.2f", heartRateData.getT_height()) + "/" +
-                            "PQR_Angle: " + String.format("%.2f", heartRateData.getPqr_angle()) + "\n" +
-                            "QRS_Angle: " + String.format("%.2f", heartRateData.getQrs_angle()) + "/" +
-                            "RST_Angle: " + String.format("%.2f", heartRateData.getRst_angle()) + "\n" +
-
-                            "DiffSelf: " + String.format("%.2f", heartRateData.getDiffSelf()) + "\n" +
-                            "R_Med: " + String.format("%.2f", heartRateData.getR_Med()) + "/" +
-                            "VoltStd: " + String.format("%.2f", heartRateData.getVoltStd()) + "\n" +
-                            "HalfWidth: " + String.format("%.2f", heartRateData.getHalfWidth());
-                } else {
-                    s = "參數計算異常";
-                    txt_isMe.setText("");
+    private void showMFCCResult(double finalDistance, ArrayList<double[]> mfccLoginList) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    txt_checkID_result.setText("歐式相似度: " + String.format("%.2f", finalDistance));
+                    if (finalDistance > 190) {
+                        txt_isMe.setText("非本人");
+                    } else {
+                        txt_isMe.setText("本人");
+                    }
+                    chartSetting.overlapArrayChart(chart_df2, mfccLoginList.get(4), mfccLoginList.get(5), mfccLoginList.get(6), mfccLoginList.get(7));
+                    chartSetting.setOverlapChartDescription(chart_df2, "登入MFCC圖");
+                } catch (Exception e) {
+                    Log.d("text", "run: " + e);
                 }
-                txt_detect_result.setText(s);
-                txt_detect_result.append("\n計算時間" + nk_process_time + "秒");
-            } catch (Exception e) {
-                Log.e("showDetectOnUI", "showDetectOnUI: " + e);
             }
         });
+        // 刪除登入資料
+        keepRegisterListIsOne(mfccArrayList, 1);
+        tinyDB.putDoubleArrayListArray("mfccArrayList", mfccArrayList);
     }
 
     /**
-     * 歐式距離
+     * 保持註冊數據只有1筆
      */
-    public void euclideanDistance() {
-        List<Map<String, Double>> dataLists = getDataListsFromJson();
-
-        if (dataLists.size() < 4) {
-            Log.e("DataError", "註冊數據不足");
-            return;
-        }
-
-        Map<String, Double> registerVector1 = dataLists.get(0);
-        Map<String, Double> registerVector2 = dataLists.get(1);
-        Map<String, Double> registerVector3 = dataLists.get(2);
-        Map<String, Double> loginVector = dataLists.get(3);
-
-        double distance = calculateAverageDistance(registerVector1, registerVector2, registerVector3, loginVector);
-        double threshold = calculateDistanceThreshold(registerVector1, registerVector2, registerVector3);
-
-        displayResults(distance, threshold, loginVector, registerVector1, registerVector2, registerVector3);
-        saveResultsToFile(registerVector1, registerVector2, registerVector3, loginVector, distance, threshold);
-        updateRegisterData(dataLists);
-    }
-
-    private List<Map<String, Double>> getDataListsFromJson() {
-        ArrayList<String> registerData = tinyDB.getListString("registerData");
-        List<Map<String, Double>> dataLists = new ArrayList<>();
-
-        for (String jsonData : registerData) {
-            JsonObject jsonObject = gson.fromJson(jsonData, JsonObject.class);
-            Map<String, Double> dataMap = new LinkedHashMap<>();
-            for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-                JsonElement element = entry.getValue();
-                if (element.isJsonPrimitive() && ((JsonPrimitive) element).isNumber()) {
-                    dataMap.put(entry.getKey(), element.getAsDouble());
-                }
-            }
-            dataLists.add(dataMap);
-        }
-        return dataLists;
-    }
-
-    private double calculateAverageDistance(Map<String, Double> vector1, Map<String, Double> vector2, Map<String, Double> vector3, Map<String, Double> loginVector) {
-        double distance1 = calculateWeightedEuclideanDistance(vector1, loginVector);
-        double distance2 = calculateWeightedEuclideanDistance(vector2, loginVector);
-        double distance3 = calculateWeightedEuclideanDistance(vector3, loginVector);
-        return (distance1 + distance2 + distance3) / 3;
-    }
-
-    private double calculateDistanceThreshold(Map<String, Double> vector1, Map<String, Double> vector2, Map<String, Double> vector3) {
-        double distanceInside1 = calculateWeightedEuclideanDistance(vector1, vector2);
-        double distanceInside2 = calculateWeightedEuclideanDistance(vector2, vector3);
-        double distanceInside3 = calculateWeightedEuclideanDistance(vector1, vector3);
-
-        double meanDistance = (distanceInside1 + distanceInside2 + distanceInside3) / 3;
-
-        double distanceThreshold = Math.max(meanDistance, 110);// 設定閥值，小於110就設110
-
-        Log.d("threshold_ori", "原來的閥值: " + meanDistance);
-        return distanceThreshold;
-    }
-
-    @SafeVarargs
-    private final void displayResults(double distance, double threshold, Map<String, Double> loginVector, Map<String, Double>... registerVectors) {
-        runOnUiThread(() -> {
-            txt_checkID_status.setText(String.format("%.2f|%.2f|%.2f = %.2f", calculateWeightedEuclideanDistance(registerVectors[0], loginVector), calculateWeightedEuclideanDistance(registerVectors[1], loginVector), calculateWeightedEuclideanDistance(registerVectors[2], loginVector), distance));
-            txt_checkID_result.setText(String.format("界定值: %.5f", threshold));
-            if (distance <= threshold) {
-                txt_isMe.setText("本人");
-            } else {
-                txt_isMe.setText("非本人");
-            }
-
-            if (Math.abs(loginVector.get("r_med")) < 0.5) {
-                txt_isMe.append("\n振幅過小!!!!");
-            }
-        });
-    }
-
-    /**
-     * 將結果輸出成csv
-     */
-    private void saveResultsToFile(Map<String, Double> registerVector1, Map<String, Double> registerVector2, Map<String, Double> registerVector3, Map<String, Double> loginVector, double distance, double threshold) {
-        List<Double> registerVector1List = getMapValues(registerVector1);
-        List<Double> registerVector2List = getMapValues(registerVector2);
-        List<Double> registerVector3List = getMapValues(registerVector3);
-        List<Double> loginVectorList = getMapValues(loginVector);
-
-        registerVector1List.add(distance);
-        registerVector1List.add(threshold);
-
-        registerVector2List.add(calculateWeightedEuclideanDistance(registerVector2, loginVector));
-        registerVector3List.add(calculateWeightedEuclideanDistance(registerVector3, loginVector));
-        loginVectorList.add(distance);
-
-        fileMaker.writeVectorsToCSV(registerVector1List, registerVector2List, registerVector3List, loginVectorList);
-    }
-
-    private void updateRegisterData(List<Map<String, Double>> dataLists) {
-        ArrayList<String> registerData = new ArrayList<>();
-        for (Map<String, Double> dataMap : dataLists) {
-            registerData.add(gson.toJson(dataMap));
-        }
-        keepRegisterListIsThree(registerData, 3);
-        tinyDB.putListString("registerData", registerData);
-    }
-
-    private List<Double> getMapValues(Map<String, Double> map) {
-        return new ArrayList<>(map.values());
-    }
-
-    public double calculateWeightedEuclideanDistance(Map<String, Double> vector1, Map<String, Double> vector2) {
-        Map<String, Double> weights = getStringDoubleMap();
-
-        double sum = 0.0;
-        for (String key : vector1.keySet()) {
-            Double v1 = vector1.get(key);
-            Double v2 = vector2.get(key);
-            if (v1 != null && v2 != null) {
-                double weight = 0; // 默認權重為1
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                    weight = weights.getOrDefault(key, 1.0);
-                }
-                sum += weight * Math.pow(v1 - v2, 2);
-            }
-        }
-
-        // 增加 R_Med 差異過大的處罰
-        double rMedDiff = Math.abs(vector1.get("r_med") - vector2.get("r_med"));
-        if (rMedDiff > 0.55) { // 如果差異過大
-            sum += 100000 * Math.pow(rMedDiff, 2); // 使用一個很大的權重來放大距離
-        }
-
-        return Math.sqrt(sum);
-    }
-
-    // 權重
-    private static @NonNull Map<String, Double> getStringDoubleMap() {
-        Map<String, Double> weights = new HashMap<>();
-        // 這些參數不應該為1，給予較高的權重
-        weights.put("sdnn", 3.0);
-        weights.put("sdsd", 3.0);
-        weights.put("rmssd", 3.0);
-        weights.put("sd1", 3.0);
-        weights.put("sd2", 3.0);
-        weights.put("t_area", 3.0);
-        weights.put("t_height", 3.0);
-        weights.put("voltStd", 5.0);
-
-        // 給R_Med 高權重，但高權重會顯著影響結果
-        weights.put("r_med", 1000.0);
-        return weights;
-    }
-
-    /**
-     * 保持註冊數據只有3筆
-     */
-    public void keepRegisterListIsThree(List<?> list, int size) {
+    public void keepRegisterListIsOne(List<?> list, int size) {
         while (list.size() > size) {
             list.remove(list.size() - 1);
         }
     }
 
+
     /**
      * 遍歷指定目錄下的所有文件，並對每個CHA文件執行processChaFile操作。
      */
-
-    private Queue<File> fileQueue = new ArrayDeque<>();
-    private Set<String> processedFiles = new HashSet<>();
 
     public void initializeFileQueue(String directoryPath) {
         File directory = new File(directoryPath);

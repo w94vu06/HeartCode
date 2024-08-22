@@ -1,20 +1,51 @@
 package com.example.newidentify.process;
 
-import static com.example.newidentify.MainActivity.chart_df;
-import static com.example.newidentify.MainActivity.global_activity;
 
-import android.graphics.Color;
+import static com.example.newidentify.MainActivity.chart_df2;
+import static com.example.newidentify.MainActivity.global_activity;
+import static com.example.newidentify.MainActivity.txt_detect_result;
 
 import com.example.newidentify.util.ChartSetting;
+import com.example.newidentify.util.EcgMath;
 import com.github.mikephil.charting.data.Entry;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class CalculateDiffSelf extends Thread {
+public class CalculateDiffMean extends Thread {
 
-    public List<Float> getReduceRR100(List<Float> dataList, int startIndex, int endIndex) {
+    EcgMath ecgMath = new EcgMath();
+
+    public double calDiffMean(List<Double> doubles, List<Integer> R_index) {
+        if (R_index.size() < 12) {
+            return 9999f; // 或者拋出一個異常
+        }
+
+        double[] df1 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(2), R_index.get(6)))  ;
+        double[] df2 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(5), R_index.get(9)));
+        double[] df3 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(8), R_index.get(12)));
+        double[] df4 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(11), R_index.get(15)));
+
+        double diff12 = calMidDiff(df1, df2);
+        double diff13 = calMidDiff(df1, df3);
+        double diff14 = calMidDiff(df1, df4);
+        double diff23 = calMidDiff(df2, df3);
+
+        double diffMean = (diff12 + diff13 + diff14 + diff23) / 4;
+
+        if (Math.abs(diffMean) > 0.8) {
+            ChartSetting chartSetting = new ChartSetting();
+            global_activity.runOnUiThread(() -> {
+                txt_detect_result.setText("自我差異度過高");
+                chartSetting.diffMeanChart(chart_df2, df1, df2, df3, df4);
+            });
+        }
+
+        return diffMean;
+    }
+
+    public List<Double> getReduceRR100(List<Double> dataList, int startIndex, int endIndex) {
         List<Entry> dataBetweenTwoR = new ArrayList<>();
 
         startIndex = Math.max(0, startIndex);
@@ -22,23 +53,23 @@ public class CalculateDiffSelf extends Thread {
 
         for (int i = startIndex; i <= endIndex; i++) {
             int xOffset = i - startIndex;
-            dataBetweenTwoR.add(new Entry(xOffset, dataList.get(i)));
+            dataBetweenTwoR.add(new Entry(xOffset, dataList.get(i).floatValue()));
         }
 
         return reduceSampling(dataBetweenTwoR);
     }
 
-    private List<Float> reduceSampling(List<Entry> input) {
+    private List<Double> reduceSampling(List<Entry> input) {
         int originalLength = input.size();
         int targetLength = Math.max(originalLength / 100, 100);
 
-        List<Float> result = new ArrayList<>();
+        List<Double> result = new ArrayList<>();
         int step = originalLength / targetLength;
         for (int i = 0; i < originalLength; i++) {
-            float sum = 0;
+            double sum = 0;
             int count = 0;
 
-            for (float j = i * step; j < (i + 1) * step && j < originalLength; j++) {
+            for (double j = i * step; j < (i + 1) * step && j < originalLength; j++) {
                 sum += input.get((int) j).getY();
                 count++;
             }
@@ -50,7 +81,7 @@ public class CalculateDiffSelf extends Thread {
         return get50Point(result);
     }
 
-    private List<Float> get50Point(List<Float> result) {
+    private List<Double> get50Point(List<Double> result) {
         int midPoint = result.size() / 2;
         int startIndex = midPoint - 50;
         int endIndex = midPoint + 50;
@@ -59,7 +90,7 @@ public class CalculateDiffSelf extends Thread {
         startIndex = Math.max(0, startIndex);
         endIndex = Math.min(result.size() - 1, endIndex);
 
-        List<Float> result2 = new ArrayList<>();
+        List<Double> result2 = new ArrayList<>();
         for (int i = startIndex; i <= endIndex; i++) {
             result2.add(result.get(i));
         }
@@ -68,8 +99,8 @@ public class CalculateDiffSelf extends Thread {
         } else if (result2.size() < 100) {
             while (result2.size() < 100) {
                 // add a average value
-                float sum = 0;
-                for (float value : result2) {
+                double sum = 0;
+                for (double value : result2) {
                     sum += value;
                 }
                 result2.add(sum / result2.size());
@@ -79,28 +110,28 @@ public class CalculateDiffSelf extends Thread {
     }
 
     // 計算兩個列表的中位數差異
-    public float calMidDiff(List<Float> data1, List<Float> data2) {
+    public double calMidDiff(double[] data1, double[] data2) {
         // 檢查兩個列表的大小是否相同，如果不同，可能需要進行錯誤處理
-        if (data1.size() != data2.size()) {
+        if (data1.length != data2.length) {
             return 0;
         }
 
         // 創建存儲中位數差異的列表
-        List<Float> differences = new ArrayList<>();
+        List<Double> differences = new ArrayList<>();
 
         // 計算差異
-        for (int i = 0; i < data1.size(); i++) {
-            float diff = (data2.get(i) - data1.get(i)) / data1.get(i);
+        for (int i = 0; i < data1.length; i++) {
+            double diff = (data2[i] - data1[i]) / data1[i];
             differences.add(diff);
         }
 
         // 計算中位數
-        float midDiff = calMid(differences);
+        double midDiff = calMid(differences);
 
         return midDiff;
     }
 
-    public float calMid(List<Float> values) {
+    public double calMid(List<Double> values) {
         // 對值進行排序
         Collections.sort(values);
 
@@ -117,39 +148,5 @@ public class CalculateDiffSelf extends Thread {
             int middleIndex = size / 2;
             return values.get(middleIndex);
         }
-    }
-
-    public float calDiffSelf(ArrayList<Float> floats, List<Integer> R_index) {
-        if (R_index.size() < 12) {
-            return 9999f; // 或者拋出一個異常
-        }
-
-        List<List<Float>> dfList = new ArrayList<>();
-
-        for (int i = 1; i < R_index.size(); i += 2) {
-            if (i + 2 < R_index.size()) {
-                List<Float> df = getReduceRR100(floats, R_index.get(i), R_index.get(i + 2));
-                dfList.add(df);
-            }
-        }
-
-        List<Float> df1 = getReduceRR100(floats, R_index.get(10), R_index.get(12));
-        List<Float> df2 = getReduceRR100(floats, R_index.get(7), R_index.get(9));
-        List<Float> df3 = getReduceRR100(floats, R_index.get(4), R_index.get(6));
-        List<Float> df4 = getReduceRR100(floats, R_index.get(1), R_index.get(3));
-
-        float diff12 = calMidDiff(df1, df2);
-        float diff13 = calMidDiff(df1, df3);
-        float diff14 = calMidDiff(df1, df4);
-        float diff23 = calMidDiff(df2, df3);
-
-        float diffSelf = (diff12 + diff13 + diff14 + diff23) / 4;
-
-        ChartSetting chartSetting = new ChartSetting();
-        global_activity.runOnUiThread(() -> {
-            chartSetting.overlapChart(chart_df, df1, df2, df3, df4, Color.CYAN, Color.RED);
-        });
-
-        return diffSelf;
     }
 }

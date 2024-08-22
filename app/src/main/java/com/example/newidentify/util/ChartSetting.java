@@ -1,6 +1,7 @@
 package com.example.newidentify.util;
 
 import android.graphics.Color;
+import android.util.Log;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Description;
@@ -65,35 +66,20 @@ public class ChartSetting {
         lineChart.invalidate();
     }
 
-    public void overlapChart(LineChart lineChart, List<Float> df1, List<Float> df2, List<Float> df3, List<Float> df4, int colorDf1, int colorDf2) {
+    public void diffMeanChart(LineChart lineChart, double[] df1, double[] df2, double[] df3, double[] df4) {
+        // 將 float[] 轉換為 ArrayList<Entry>
+        ArrayList<Entry> df1_ = convertToEntryList(df1);
+        ArrayList<Entry> df2_ = convertToEntryList(df2);
+        ArrayList<Entry> df3_ = convertToEntryList(df3);
+        ArrayList<Entry> df4_ = convertToEntryList(df4);
 
-        //list float to entry
-        ArrayList<Entry> df1_ = new ArrayList<>();
-        ArrayList<Entry> df2_ = new ArrayList<>();
-        ArrayList<Entry> df3_ = new ArrayList<>();
-        ArrayList<Entry> df4_ = new ArrayList<>();
-        for (int i = 0; i < df1.size(); i++) {
-            Entry entry = new Entry(i, df1.get(i));
-            df1_.add(entry);
-        }
-        for (int i = 0; i < df2.size(); i++) {
-            Entry entry = new Entry(i, df2.get(i));
-            df2_.add(entry);
-        }
-        for (int i = 0; i < df3.size(); i++) {
-            Entry entry = new Entry(i, df3.get(i));
-            df3_.add(entry);
-        }
-        for (int i = 0; i < df4.size(); i++) {
-            Entry entry = new Entry(i, df4.get(i));
-            df4_.add(entry);
-        }
+        // 創建 LineDataSet
+        LineDataSet dataSet1 = createDataSet("df1", Color.parseColor("#7efc91"), df1_);
+        LineDataSet dataSet2 = createDataSet("df2", Color.parseColor("#fc7e7e"), df2_);
+        LineDataSet dataSet3 = createDataSet("df3", Color.parseColor("#effc7e"), df3_);
+        LineDataSet dataSet4 = createDataSet("df4", Color.parseColor("#7ef8fc"), df4_);
 
-        LineDataSet dataSet4 = createDataSet("df4", Color.parseColor("#FFD700"), df4);
-        LineDataSet dataSet3 = createDataSet("df3", Color.GREEN, df3);
-        LineDataSet dataSet2 = createDataSet("df2", colorDf2, df2);
-        LineDataSet dataSet1 = createDataSet("df1", colorDf1, df1);
-
+        // 配置軸
         YAxis leftAxis = lineChart.getAxisLeft();
         leftAxis.setEnabled(false);
         YAxis rightAxis = lineChart.getAxisRight();
@@ -101,18 +87,74 @@ public class ChartSetting {
         XAxis topAxis = lineChart.getXAxis();
         topAxis.setEnabled(false);
 
-        LineData lineData = new LineData(dataSet4, dataSet3, dataSet2, dataSet1);
+        // 設置數據並刷新圖表
+        LineData lineData = new LineData(dataSet1, dataSet2, dataSet3, dataSet4);
         lineChart.setData(lineData);
+
         lineChart.invalidate();
     }
 
-    private LineDataSet createDataSet(String label, int color, List<Float> values) {
-        // 将 List<Float> 轉成 List<Entry>
-        List<Entry> entries = new ArrayList<>();
-        for (int i = 0; i < values.size(); i++) {
-            entries.add(new Entry(i, values.get(i)));
-        }
+    public void overlapArrayChart(LineChart lineChart, double[] df1, double[] df2, double[] df3, double[] df4) {
+        // 將 float[] 轉換為 ArrayList<Entry>
+        ArrayList<Entry> df1_ = convertToEntryList(df1);
+        ArrayList<Entry> df2_ = convertToEntryList(df2);
+        ArrayList<Entry> df3_ = convertToEntryList(df3);
+        ArrayList<Entry> df4_ = convertToEntryList(df4);
 
+        // 創建 LineDataSet
+        LineDataSet dataSet1 = createDataSet("df1", Color.parseColor("#7efc91"), df1_);
+        LineDataSet dataSet2 = createDataSet("df2", Color.parseColor("#fc7e7e"), df2_);
+        LineDataSet dataSet3 = createDataSet("df3", Color.parseColor("#effc7e"), df3_);
+        LineDataSet dataSet4 = createDataSet("df4", Color.parseColor("#7ef8fc"), df4_);
+
+        // 配置軸
+        YAxis leftAxis = lineChart.getAxisLeft();
+        leftAxis.setEnabled(false);
+        YAxis rightAxis = lineChart.getAxisRight();
+        rightAxis.setEnabled(false);
+        XAxis topAxis = lineChart.getXAxis();
+        topAxis.setEnabled(false);
+
+        // 設置數據並刷新圖表
+        LineData lineData = new LineData(dataSet1, dataSet2, dataSet3, dataSet4);
+        lineChart.setData(lineData);
+
+        lineChart.invalidate();
+    }
+
+    public void setOverlapChartDescription(LineChart lineChart, String description) {
+        Description chartDescription = new Description();
+        chartDescription.setText(description);
+        chartDescription.setTextColor(Color.BLACK);
+        chartDescription.setTextSize(12);
+        lineChart.setDescription(chartDescription);
+    }
+
+    private ArrayList<Entry> convertToEntryList(double[] data) {
+        ArrayList<Entry> entryList = new ArrayList<>();
+        for (int i = 0; i < data.length; i++) {
+            if (Double.isNaN(data[i])) {
+                entryList.add(new Entry(i, 0));
+            } else {
+                entryList.add(new Entry(i, (float) data[i]));
+            }
+        }
+        return entryList;
+    }
+
+    private ArrayList<Entry> convertToEntryList(List<Double> data) {
+        ArrayList<Entry> entryList = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            if (Double.isNaN(data.get(i))) {
+                entryList.add(new Entry(i, 0));
+            } else {
+                entryList.add(new Entry(i, data.get(i).floatValue()));
+            }
+        }
+        return entryList;
+    }
+
+    private LineDataSet createDataSet(String label, int color, List<Entry> entries) {
         LineDataSet dataSet = new LineDataSet(entries, label);
 
         dataSet.setColor(color);
@@ -122,6 +164,17 @@ public class ChartSetting {
 
         return dataSet;
     }
+
+    private LineDataSet createDataSet(String label, List<Entry> entries) {
+        LineDataSet dataSet = new LineDataSet(entries, label);
+
+        dataSet.setLineWidth(2f);
+        dataSet.setDrawCircles(false);
+        dataSet.setMode(LineDataSet.Mode.LINEAR);
+
+        return dataSet;
+    }
+
 
     public void markPQRST(LineChart chart, ArrayList<Float> ecg_signal_origin,
                           List<Integer> P_index_up, List<Integer> Q_index_up,

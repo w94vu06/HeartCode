@@ -71,7 +71,7 @@ public class BT4 extends Service {
     //判斷是否連線
     public boolean isConnected = false;
     public boolean alreadyscan = false;
-    public boolean isSixSecOver = false;
+    public boolean is5SecOver = false;
 
     //BLE
     BluetoothGattCharacteristic gattCharacteristic_char6;
@@ -581,7 +581,7 @@ public class BT4 extends Service {
                                                 break;
                                             }
                                         }
-                                        if (isnull || !isSixSecOver) {
+                                        if (isnull || !is5SecOver) {
                                             for (int i = 0; i < 7; i++) {
                                                 Buffer_Array.remove(0);
                                             }
@@ -593,7 +593,6 @@ public class BT4 extends Service {
                                                 wave_array.add(Buffer_Array.get(0));
                                                 Buffer_Array.remove(0);
                                             }
-//                                            Log.d("wwwww", "result = " + result);
 
                                             if (wave_array.size() >= 7) {
 //                                                Log.d(bluetooth_Tag, "wave_array = " + wave_array.size() + "     bytesAvailable = " + Buffer_Array.size());
@@ -605,7 +604,11 @@ public class BT4 extends Service {
                                                 ecgbyte[4] = wave_array.get(4);
                                                 ecgbyte[5] = wave_array.get(5);
                                                 ecgbyte[6] = wave_array.get(6);
-                                                String valid = Integer.toString((wave_array.get(0) & 0xff) + 0x100, 16).substring(1) + Integer.toString((wave_array.get(1) & 0xff) + 0x100, 16).substring(1);
+
+                                                String valid = Integer.toString((wave_array.get(0) & 0xff) + 0x100, 16).substring(1)
+                                                             + Integer.toString((wave_array.get(1) & 0xff) + 0x100, 16).substring(1)
+                                                             + Integer.toString((wave_array.get(2) & 0xff) + 0x100, 16).substring(1)
+                                                             + Integer.toString((wave_array.get(6) & 0xff) + 0x100, 16).substring(1);
 
                                                 wave_array.remove(0);
                                                 wave_array.remove(0);
@@ -615,7 +618,7 @@ public class BT4 extends Service {
                                                 wave_array.remove(0);
                                                 wave_array.remove(0);
 
-                                                if (valid.equals("aaa0") && isSixSecOver) {
+                                                if (valid.equals("aaa00800") || valid.equals("aaa00801") && is5SecOver) {
                                                     DrawChart(ecgbyte);
                                                 }
                                             }

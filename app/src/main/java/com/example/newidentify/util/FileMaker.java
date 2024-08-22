@@ -360,25 +360,19 @@ public class FileMaker {
 
                 "bpm",
                 "mean_nn",
-
                 "sdnn",
                 "sdsd",
                 "rmssd",
-
                 "sd1",
                 "sd2",
                 "sd1/sd2",
-
                 "shan_en",
                 "af",
-
                 "t_area",
                 "t_height",
-
                 "pqr_angle",
                 "qrs_angle",
                 "rst_angle",
-
                 "r_med",
                 "voltStd",
                 "halfWidth",
@@ -423,6 +417,54 @@ public class FileMaker {
             e.printStackTrace();
         }
     }
+
+    public void saveMFCCVectorsToCSV(ArrayList<float[]> registerVectorList, ArrayList<float[]> loginVectorList, float distance) {
+        String[] states = {"regi1", "regi2", "regi3", "regi4", "login1", "login2", "login3", "login4", "distance"};
+        String storageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "MFCCVectors_" + timeStamp + ".csv";
+        String filePath = storageDir + "/" + fileName;
+
+        try (FileWriter writer = new FileWriter(filePath)) {
+            // Write headers
+            writer.write("State,Values\n");
+
+            // Write data for each state
+            int stateIndex = 0;
+
+            // Check that registerVectorList and loginVectorList contain at least 4 elements
+            if (registerVectorList.size() >= 4 && loginVectorList.size() >= 4) {
+                for (int i = 0; i < 4; i++) {
+                    // Write registration data
+                    writer.write(states[stateIndex++] + ",");
+                    float[] registerVector = registerVectorList.get(i);
+                    for (float value : registerVector) {
+                        writer.write(value + ",");
+                    }
+                    writer.write("\n");
+                }
+
+                for (int i = 0; i < 4; i++) {
+                    // Write login data
+                    writer.write(states[stateIndex++] + ",");
+                    float[] loginVector = loginVectorList.get(i);
+                    for (float value : loginVector) {
+                        writer.write(value + ",");
+                    }
+                    writer.write("\n");
+                }
+
+                // Write distance
+                writer.write(states[stateIndex] + "," + distance);
+            } else {
+                Log.e("saveMFCCVectorsToCSV", "Insufficient data: registerVectorList and/or loginVectorList do not contain enough elements.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 
     public void saveByteArrayToFile(ArrayList<Byte> byteList, File file) throws IOException {
         byte[] byteArray = new byte[byteList.size()];
