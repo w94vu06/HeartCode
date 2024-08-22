@@ -173,8 +173,6 @@ public class MainActivity extends AppCompatActivity {
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
-        py = Python.getInstance();
-        pyObj = py.getModule("nk2_process");
     }
 
     @Override
@@ -182,7 +180,14 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         initBroadcast();
         setScreenOn();
-        checkAndDisplayRegistrationStatus();//檢查註冊狀態
+        //延遲載入圖表
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkAndDisplayRegistrationStatus();//檢查註冊狀態
+            }
+        }, 1000);
     }
 
     @Override
@@ -409,12 +414,11 @@ public class MainActivity extends AppCompatActivity {
         if (registeredData.get(0) != null) {
             mfccArrayList.add(registeredData);
             txt_checkID_status.setText("註冊完成");
+            double[] regiDrawList1 = tinyDB.getDoubleArray("mfccDrawList1");
+            double[] regiDrawList2 = tinyDB.getDoubleArray("mfccDrawList2");
+            double[] regiDrawList3 = tinyDB.getDoubleArray("mfccDrawList3");
+            double[] regiDrawList4 = tinyDB.getDoubleArray("mfccDrawList4");
             runOnUiThread(() -> {
-                double[] regiDrawList1 = tinyDB.getDoubleArray("mfccDrawList1");
-                double[] regiDrawList2 = tinyDB.getDoubleArray("mfccDrawList2");
-                double[] regiDrawList3 = tinyDB.getDoubleArray("mfccDrawList3");
-                double[] regiDrawList4 = tinyDB.getDoubleArray("mfccDrawList4");
-
                 chartSetting.overlapArrayChart(chart_df, regiDrawList1, regiDrawList2, regiDrawList3, regiDrawList4);
                 chartSetting.setOverlapChartDescription(chart_df, "註冊MFCC圖");
             });
@@ -722,8 +726,11 @@ public class MainActivity extends AppCompatActivity {
     public void calculateMFCC(double[] doubles) {
         ArrayList<ArrayList<float[]>> regiList = tinyDB.getFloatArrayListArray("mfccArrayList");
 
-        if (regiList.size() < 2) {
-            registerMFCC(doubles);
+        if (regiList.isEmpty()) {
+            // 量測一筆，將一筆資料拆成兩段以計算閥值
+//            registerMFCC(doubles);
+            MFCCProcess mfccProcess = new MFCCProcess();
+            mfccProcess.mfccRegister(doubles);
         } else {
             loginMFCC(doubles);
         }
@@ -733,6 +740,7 @@ public class MainActivity extends AppCompatActivity {
         MFCCProcess MFCCProcess = new MFCCProcess();
         // 註冊資料
         ArrayList<double[]> mfccRegiList = MFCCProcess.mfccProcess(doubles);
+
         mfccArrayList.add(mfccRegiList);
 
         if (!mfccArrayList.isEmpty()) {
@@ -753,33 +761,6 @@ public class MainActivity extends AppCompatActivity {
             double[] savedData1 = tinyDB.getDoubleArray("mfccRegiList2");
             double[] savedData2 = tinyDB.getDoubleArray("mfccRegiList3");
             double[] savedData3 = tinyDB.getDoubleArray("mfccRegiList4");
-            Log.d("Debug", "Saved Data: " + Arrays.toString(mfccRegiList.get(0)));
-            Log.d("Debug", "Retrieved Data: " + Arrays.toString(savedData));
-
-            // 檢查兩者是否相等
-            if (Arrays.equals(mfccRegiList.get(0), savedData)) {
-                Log.d("Debug", "Data is consistent");
-            } else {
-                Log.d("Debug", "Data mismatch detected");
-            }
-
-            if (Arrays.equals(mfccRegiList.get(1), savedData1)) {
-                Log.d("Debug", "Data1 is consistent");
-            } else {
-                Log.d("Debug", "Data1 mismatch detected");
-            }
-
-            if (Arrays.equals(mfccRegiList.get(2), savedData2)) {
-                Log.d("Debug", "Data2 is consistent");
-            } else {
-                Log.d("Debug", "Data2 mismatch detected");
-            }
-
-            if (Arrays.equals(mfccRegiList.get(3), savedData3)) {
-                Log.d("Debug", "Data3 is consistent");
-            } else {
-                Log.d("Debug", "Data3 mismatch detected");
-            }
 
         } else {
             txt_checkID_status.setText("註冊失敗");

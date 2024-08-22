@@ -32,6 +32,87 @@ public class MFCCProcess {
         pyObj = py.getModule("nk2_process");
     }
 
+    public double[] mfccRegister(double[] ecg_signal) {
+        PyObject object;
+        double[] distanceArray = new double[0]; // 初始化
+
+        try {
+            object = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
+            if (object == null || object.asList().isEmpty()) {
+                Log.e("mfccRegister", "Invalid PyObject: null or empty");
+                return distanceArray; // 返回空的數組
+            }
+
+            // 將 Python 返回的數據轉換為 Map
+            Map<String, List<Double>> rValuesMap = gson.fromJson(String.valueOf(object.asList().get(0)), new TypeToken<Map<String, List<Double>>>() {
+            }.getType());
+            Map<String, Double> HRVValuesMap = gson.fromJson(String.valueOf(object.asList().get(1)), new TypeToken<Map<String, Double>>() {
+            }.getType());
+
+            // 檢查 rValuesMap 和 HRVValuesMap 是否為空
+            if (rValuesMap == null || HRVValuesMap == null) {
+                Log.e("mfccRegister", "Parsed JSON is null");
+                return distanceArray; // 返回空的數組
+            }
+
+            List<Double> rPeaksList = rValuesMap.get("r_peaks");
+            List<Double> signalMapList = rValuesMap.get("clean_signal");
+
+            // 先檢查資料的品質
+            double diffMean = calculateDiffMean.calDiffMean(signalMapList, ecgMath.listDoubleToListInt(rPeaksList));
+            if (Math.abs(diffMean) > 0.8) {
+                global_activity.runOnUiThread(() -> {
+                    MainActivity.txt_detect_result.setText("自我差異度：" + String.format("%.2f", diffMean) + "\n差異度過高");
+                    MainActivity.txt_isMe.setText("");
+                });
+                return distanceArray; // 返回空的數組
+            } else {
+                global_activity.runOnUiThread(() -> {
+                    MainActivity.txt_detect_result.setText("自我差異度：" + String.format("%.2f", diffMean));
+                });
+            }
+
+            // 開始計算 MFCC
+            MFCC mfcc = new MFCC();
+            double[] mfcc1 = ecgMath.convertFloatArrayToDoubleArray(
+                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(2), rPeaksList.get(6))));
+            double[] mfcc2 = ecgMath.convertFloatArrayToDoubleArray(
+                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(5), rPeaksList.get(9))));
+            double[] mfcc3 = ecgMath.convertFloatArrayToDoubleArray(
+                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(8), rPeaksList.get(12))));
+            double[] mfcc4 = ecgMath.convertFloatArrayToDoubleArray(
+                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(11), rPeaksList.get(15))));
+
+            // 計算兩組 MFCC 的歐式距離
+            double distance1 = calculateEuclideanDistance(mfcc1, mfcc2);
+            double distance2 = calculateEuclideanDistance(mfcc3, mfcc4);
+
+            // 計算距離的中位數和平均數
+            ArrayList<Double> distances = new ArrayList<>();
+            distances.add(distance1);
+            distances.add(distance2);
+            double medianDistance = calculateMedian(distances);
+            double meanDistance = calculateMean(distances);
+
+            distanceArray = new double[]{distance1, distance2};
+
+            // 返回距離值
+            global_activity.runOnUiThread(() -> {
+                MainActivity.txt_checkID_result.setText("中位：" + String.format("%.2f", medianDistance) +
+                        "\n平均：" + String.format("%.2f", meanDistance));
+                MainActivity.txt_checkID_status.setText("已註冊完成");
+            });
+
+        } catch (Exception e) {
+            Log.e("mfccRegister", "Error: " + e.getMessage());
+            return distanceArray; // 返回空的數組或在發生錯誤時返回初始值
+        }
+
+        return distanceArray;
+    }
+
+
+
     // 調用NK2濾波處理
     public ArrayList<double[]> mfccProcess(double[] ecg_signal) {
         try {
@@ -69,7 +150,6 @@ public class MFCCProcess {
         double Bpm = HRVValuesMap.get("bpm");
 
         double diffMean = calculateDiffMean.calDiffMean(signalMapList, ecgMath.listDoubleToListInt(rPeaksList));
-
 
         if (Math.abs(diffMean) > 0.8) {
             global_activity.runOnUiThread(new Runnable() {
@@ -137,6 +217,22 @@ public class MFCCProcess {
         return arrayList;
     }
 
+    private void checkDiffMean(double diffMean, double Bpm) {
+        global_activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String s = "自我差異度：" + String.format("%.2f", diffMean);
+                String s1 = "心率：" + String.format("%.2f", Bpm);
+                if (Math.abs(diffMean) > 0.8) {
+                    MainActivity.txt_detect_result.setText(s + "\n差異度過高");
+                    MainActivity.txt_isMe.setText("");
+                } else {
+                    MainActivity.txt_detect_result.setText(s + "\n" + s1);
+                }
+            }
+        });
+    }
+
     private static double linearInterpolate(double x0, double y0, double x1, double y1, double x) {
         if (x1 == x0) {
             return y0;
@@ -173,7 +269,6 @@ public class MFCCProcess {
 
         return result;
     }
-
 
     public double euclideanDistanceProcessor(ArrayList<double[]> firstGroup, ArrayList<double[]> secondGroup) {
         if (firstGroup.size() == 4 && secondGroup.size() == 4) {

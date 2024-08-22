@@ -34,7 +34,6 @@ public class BeginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.begin_page);
         initButton();
-        initPython();
         checkPermissions();
         checkStorageManagerPermission();//檢查儲存權限
     }
@@ -60,15 +59,6 @@ public class BeginActivity extends AppCompatActivity {
                 Toast.makeText(BeginActivity.this, "已清除量測檔案", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    private void initPython() {
-        //初始化Python
-        if (!Python.isStarted()) {
-            Python.start(new AndroidPlatform(this));
-        }
-        py = Python.getInstance();
-        pyObj = py.getModule("hrv_analysis");
     }
 
     private void checkPermissions() {
