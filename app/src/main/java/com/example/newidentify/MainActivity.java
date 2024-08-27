@@ -5,7 +5,6 @@ import static com.example.newidentify.util.ChartSetting.getStreamLP;
 import static java.lang.Math.abs;
 import static java.lang.Math.getExponent;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
@@ -18,9 +17,7 @@ import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.Environment;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
 import android.view.View;
@@ -30,18 +27,13 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.chaquo.python.PyObject;
 import com.example.newidentify.bluetooth.BT4;
 import com.example.newidentify.mfcc.MFCCProcess;
-import com.example.newidentify.util.ReadCSV;
-import com.example.newidentify.process.HeartRateData;
 import com.example.newidentify.util.ChartSetting;
 import com.example.newidentify.util.CleanFile;
-import com.example.newidentify.util.EcgMath;
 import com.example.newidentify.util.TinyDB;
 import com.example.newidentify.process.DecodeCha;
 import com.example.newidentify.util.FileMaker;
-import com.example.newidentify.process.CalculateDiffMean;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -50,38 +42,24 @@ import com.github.mikephil.charting.listener.BarLineChartTouchListener;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.reflect.TypeToken;
 
 import org.apache.commons.logging.LogFactory;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 
 public class MainActivity extends AppCompatActivity {
     private static final org.apache.commons.logging.Log log = LogFactory.getLog(MainActivity.class);
-    // HeartRateData 物件，用於儲存心率數據
-    private HeartRateData heartRateData;
     // Gson 物件
     private Gson gson = new Gson();
     // TinyDB 物件
@@ -127,18 +105,12 @@ public class MainActivity extends AppCompatActivity {
     public static ArrayList<Entry> chartSet1Entries = new ArrayList<>();
     public static ArrayList<Double> oldValue = new ArrayList<>();
 
-    private CalculateDiffMean calculateDiffMean;
-    private EcgMath ecgMath = new EcgMath();
     public CleanFile cleanFile;
     private FileMaker fileMaker = new FileMaker(this);
     public double[] rawEcgSignal;
 
     private ArrayList<String> registerData = new ArrayList<>();
     private ArrayList<ArrayList<double[]>> mfccArrayList = new ArrayList<>();
-
-    // Python 相關變數
-    public static Python py;
-    public static PyObject pyObj;
 
     private Queue<File> fileQueue = new ArrayDeque<>();
     private Set<String> processedFiles = new HashSet<>();
@@ -159,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
         bt4 = new BT4(global_activity);
         tinyDB = new TinyDB(global_activity);
         deviceDialog = new Dialog(global_activity);
-        calculateDiffMean = new CalculateDiffMean();
         cleanFile = new CleanFile();
         chartSetting = new ChartSetting();
         lineChart = findViewById(R.id.linechart);
@@ -180,19 +151,12 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         initBroadcast();
         setScreenOn();
-        //延遲載入圖表
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                checkAndDisplayRegistrationStatus();//檢查註冊狀態
-            }
-        }, 1000);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d("lifeCycle", "onPause: ");
         if (countDownTimer != null) {
             stop_detection();
         }
@@ -285,18 +249,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 stop_detection(); //停止量測
-
-                HandlerThread handlerThread = new HandlerThread("MFCCThread");
-                handlerThread.start();
-                Handler handler = new Handler(handlerThread.getLooper());
-
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        processChaFile(Environment.getExternalStorageDirectory().getAbsolutePath() + "/l_20240821140649_888888_1187332922578169732.cha");
-//                        calculateMFCCFile(Environment.getExternalStorageDirectory().getAbsolutePath() + "/20240718161704_ecg_signal.csv");
-                    }
-                });
             }
         });
 
@@ -308,6 +260,7 @@ public class MainActivity extends AppCompatActivity {
                     ShowToast("已清除註冊檔案");
 
                     resetUI();
+                    txt_checkID_status.setText("尚未有註冊資料");
                     chart_df.clear();
                     chart_df2.clear();
                     cleanRegistrationData();
@@ -351,7 +304,6 @@ public class MainActivity extends AppCompatActivity {
             txt_isMe.setText("");
             txt_detect_result.setText("");
             txt_checkID_result.setText("");
-            txt_checkID_status.setText("");
         });
     }
 
@@ -377,9 +329,9 @@ public class MainActivity extends AppCompatActivity {
         completeButton.setOnClickListener(view -> {
             int checkedRadioButtonId = devicesRadioGroup.getCheckedRadioButtonId();
             if (checkedRadioButtonId == R.id.radioButtonDevice1) {
-                setDeviceNameAndInit("CmateH");
+                setDeviceNameAndInitChart("CmateH");
             } else if (checkedRadioButtonId == R.id.radioButtonDevice2) {
-                setDeviceNameAndInit("WTK230");
+                setDeviceNameAndInitChart("WTK230");
             } else {
                 bt4.deviceName = "";
                 Toast.makeText(global_activity, "請選擇一個裝置", Toast.LENGTH_SHORT).show();
@@ -387,12 +339,23 @@ public class MainActivity extends AppCompatActivity {
         });
 
         deviceDialog.show();
+
     }
 
-    private void setDeviceNameAndInit(String deviceName) {
+    private void setDeviceNameAndInitChart(String deviceName) {
+        ShowToast("檢查是否有註冊資料");
         bt4.deviceName = deviceName;
         bt4.Bluetooth_init();
         deviceDialog.dismiss();
+
+        //延遲載入圖表
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkAndDisplayRegistrationStatus();//檢查註冊狀態
+            }
+        }, 500);
     }
 
     @Override
@@ -405,22 +368,16 @@ public class MainActivity extends AppCompatActivity {
      */
     public void checkAndDisplayRegistrationStatus() {
         //確認MFCC註冊狀態
-        ArrayList<double[]> registeredData = new ArrayList<>();// 讀取註冊資料
-        registeredData.add(tinyDB.getDoubleArray("mfccRegiList1"));
-        registeredData.add(tinyDB.getDoubleArray("mfccRegiList2"));
-        registeredData.add(tinyDB.getDoubleArray("mfccRegiList3"));
-        registeredData.add(tinyDB.getDoubleArray("mfccRegiList4"));
+        double threshold = tinyDB.getDouble("mfccThreshold");
 
-        if (registeredData.get(0) != null) {
-            mfccArrayList.add(registeredData);
-            txt_checkID_status.setText("註冊完成");
+        if (threshold != 0.0) {
+            txt_checkID_status.setText("界定值:" + String.format("%.2f", threshold));
             double[] regiDrawList1 = tinyDB.getDoubleArray("mfccDrawList1");
             double[] regiDrawList2 = tinyDB.getDoubleArray("mfccDrawList2");
             double[] regiDrawList3 = tinyDB.getDoubleArray("mfccDrawList3");
             double[] regiDrawList4 = tinyDB.getDoubleArray("mfccDrawList4");
             runOnUiThread(() -> {
                 chartSetting.overlapArrayChart(chart_df, regiDrawList1, regiDrawList2, regiDrawList3, regiDrawList4);
-                chartSetting.setOverlapChartDescription(chart_df, "註冊MFCC圖");
             });
         } else {
             txt_checkID_status.setText("尚未有註冊資料");
@@ -626,6 +583,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (step[0] == 3) {
                     if (!bt4.file_data.isEmpty()) {
+
                         processLP4(bt4.file_data);
                     } else {
                         ShowToast("檔案大小為0");
@@ -676,6 +634,7 @@ public class MainActivity extends AppCompatActivity {
     private void processTempFile(String tempFilePath) {
         if (fileExists(tempFilePath)) {
             decodeEcgFile(tempFilePath);
+
             String chaFilePath = tempFilePath.replace(".lp4", ".cha");
             processChaFile(chaFilePath);
         } else {
@@ -701,7 +660,6 @@ public class MainActivity extends AppCompatActivity {
             new Thread(() -> {
                 DecodeCha decodeCha = new DecodeCha(chaFilePath);
                 decodeCha.run();
-
                 rawEcgSignal = decodeCha.ecgSignal;
                 calculateMFCC(rawEcgSignal);
             }).start();
@@ -710,81 +668,75 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void calculateMFCCFile(String filePath) {
-        ReadCSV csv = new ReadCSV();
-        File csvFile = new File(filePath);
-
-        try {
-            // 取得MFCC特徵列表
-            double[] mfccCSV = csv.processCSV(csvFile);
-            calculateMFCC(mfccCSV);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void calculateMFCC(double[] doubles) {
-        ArrayList<ArrayList<float[]>> regiList = tinyDB.getFloatArrayListArray("mfccArrayList");
+        double[] regiList1 = tinyDB.getDoubleArray("mfccRegiList1");
+        double[] regiList2 = tinyDB.getDoubleArray("mfccRegiList2");
+        double[] regiList3 = tinyDB.getDoubleArray("mfccRegiList3");
+        double[] regiList4 = tinyDB.getDoubleArray("mfccRegiList4");
 
-        if (regiList.isEmpty()) {
+        ShowToast("計算中...");
+
+        if (regiList1.length > 0 && regiList2.length > 0 &&
+                regiList3.length > 0 && regiList4.length > 0) {
             // 量測一筆，將一筆資料拆成兩段以計算閥值
-//            registerMFCC(doubles);
-            MFCCProcess mfccProcess = new MFCCProcess();
-            mfccProcess.mfccRegister(doubles);
-        } else {
             loginMFCC(doubles);
+        } else {
+            registerMFCC(doubles);
         }
     }
 
     public void registerMFCC(double[] doubles) {
-        MFCCProcess MFCCProcess = new MFCCProcess();
-        // 註冊資料
-        ArrayList<double[]> mfccRegiList = MFCCProcess.mfccProcess(doubles);
-
-        mfccArrayList.add(mfccRegiList);
-
-        if (!mfccArrayList.isEmpty()) {
-
-            tinyDB.putDoubleArrayListArray("mfccArrayList", mfccArrayList);
-
+        MFCCProcess mfccProcess = new MFCCProcess();
+        ArrayList<double[]> mfccRegiList = mfccProcess.mfccRegister(doubles);
+        if (!mfccRegiList.isEmpty()) { //儲存註冊資料
             tinyDB.putDoubleArray("mfccRegiList1", mfccRegiList.get(0));
             tinyDB.putDoubleArray("mfccRegiList2", mfccRegiList.get(1));
             tinyDB.putDoubleArray("mfccRegiList3", mfccRegiList.get(2));
             tinyDB.putDoubleArray("mfccRegiList4", mfccRegiList.get(3));
 
+            //放入畫圖的資料列
             tinyDB.putDoubleArray("mfccDrawList1", mfccRegiList.get(4));
             tinyDB.putDoubleArray("mfccDrawList2", mfccRegiList.get(5));
             tinyDB.putDoubleArray("mfccDrawList3", mfccRegiList.get(6));
             tinyDB.putDoubleArray("mfccDrawList4", mfccRegiList.get(7));
 
-            double[] savedData = tinyDB.getDoubleArray("mfccRegiList1");
-            double[] savedData1 = tinyDB.getDoubleArray("mfccRegiList2");
-            double[] savedData2 = tinyDB.getDoubleArray("mfccRegiList3");
-            double[] savedData3 = tinyDB.getDoubleArray("mfccRegiList4");
-
+            tinyDB.putDoubleArray("mfccDistance", mfccRegiList.get(8));//距離值
+            Log.d("time", "time: 6" + System.currentTimeMillis());
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    chartSetting.overlapArrayChart(chart_df, mfccRegiList.get(4), mfccRegiList.get(5), mfccRegiList.get(6), mfccRegiList.get(7));
+                    Log.d("time", "time: 7" + System.currentTimeMillis());
+                }
+            });
         } else {
             txt_checkID_status.setText("註冊失敗");
             Log.e("mfcc", "registerMFCC: 註冊失敗");
         }
+        setMFCCThreshold();
+    }
+
+    public void setMFCCThreshold() {
+        double[] mfccDistance = tinyDB.getDoubleArray("mfccDistance");
+        double threshold = 0;
+        for (double value : mfccDistance) {
+            threshold += value;
+        }
+        threshold = threshold * 1.35;
+        double finalThreshold = threshold;
+        tinyDB.putDouble("mfccThreshold", threshold);
 
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    txt_checkID_status.setText("註冊完成");
-                    chartSetting.overlapArrayChart(chart_df, mfccRegiList.get(4), mfccRegiList.get(5), mfccRegiList.get(6), mfccRegiList.get(7));
-                    chartSetting.setOverlapChartDescription(chart_df, "註冊MFCC圖");
-                } catch (Exception e) {
-                    Log.d("mfcc", "registerMFCC: " + e);
-                    txt_detect_result.setText("MFCC計算失敗");
-                }
+                txt_checkID_status.setText("界定值: " + String.format("%.2f", finalThreshold));
             }
         });
     }
 
     public void loginMFCC(double[] doubles) {
         MFCCProcess mfccProcess = new MFCCProcess();
-        double distance = 9999;
+        double loginDistance = 9999.0;
         ArrayList<double[]> mfccLoginList = mfccProcess.mfccProcess(doubles);
         try {
             ArrayList<double[]> registeredData = new ArrayList<>();// 第一筆為註冊資料
@@ -800,34 +752,45 @@ public class MainActivity extends AppCompatActivity {
             loginData.add(mfccLoginList.get(3));
 
             // 計算歐式距離
-            distance = mfccProcess.euclideanDistanceProcessor(registeredData, loginData);
-
+            loginDistance = mfccProcess.euclideanDistanceProcessor(registeredData, loginData);
         } catch (Exception e) {
             Log.d("mfcc", "loginMFCC: " + e);
         }
 
-        double finalDistance = distance;
-        showMFCCResult(finalDistance, mfccLoginList);
+        showMFCCResult(loginDistance, mfccLoginList);
     }
 
-    private void showMFCCResult(double finalDistance, ArrayList<double[]> mfccLoginList) {
+    private void showMFCCResult(double loginDistance, ArrayList<double[]> mfccLoginList) {
+        // 先顯示本人或非本人的結果
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                double regiDistance = tinyDB.getDouble("mfccThreshold");
                 try {
-                    txt_checkID_result.setText("歐式相似度: " + String.format("%.2f", finalDistance));
-                    if (finalDistance > 190) {
+                    txt_checkID_result.setText("歐式相似度: " + String.format("%.2f", loginDistance));
+                    if (loginDistance > regiDistance) {
                         txt_isMe.setText("非本人");
                     } else {
                         txt_isMe.setText("本人");
                     }
-                    chartSetting.overlapArrayChart(chart_df2, mfccLoginList.get(4), mfccLoginList.get(5), mfccLoginList.get(6), mfccLoginList.get(7));
-                    chartSetting.setOverlapChartDescription(chart_df2, "登入MFCC圖");
                 } catch (Exception e) {
                     Log.d("text", "run: " + e);
                 }
             }
         });
+
+        // 延遲渲染圖表，避免阻塞主線程
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    chartSetting.overlapArrayChart(chart_df2, mfccLoginList.get(4), mfccLoginList.get(5), mfccLoginList.get(6), mfccLoginList.get(7));
+                } catch (Exception e) {
+                    Log.d("chart", "run: " + e);
+                }
+            }
+        });
+
         // 刪除登入資料
         keepRegisterListIsOne(mfccArrayList, 1);
         tinyDB.putDoubleArrayListArray("mfccArrayList", mfccArrayList);
@@ -839,89 +802,6 @@ public class MainActivity extends AppCompatActivity {
     public void keepRegisterListIsOne(List<?> list, int size) {
         while (list.size() > size) {
             list.remove(list.size() - 1);
-        }
-    }
-
-
-    /**
-     * 遍歷指定目錄下的所有文件，並對每個CHA文件執行processChaFile操作。
-     */
-
-    public void initializeFileQueue(String directoryPath) {
-        File directory = new File(directoryPath);
-        // 確保該路徑是目錄
-        if (directory.isDirectory()) {
-            // 取得目錄下所有檔案（和目錄）
-            File[] files = directory.listFiles();
-
-            // 確保files不為null
-            if (files != null) {
-                for (File file : files) {
-                    // 將檔案加入隊列
-                    fileQueue.add(file);
-                }
-            } else {
-                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
-            }
-        } else {
-            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
-        }
-    }
-
-    public void processNextFile() {
-        if (!fileQueue.isEmpty()) {
-            File file = fileQueue.poll();
-            if (file != null && !processedFiles.contains(file.getName())) {
-                // 處理文件的邏輯
-                processFile(file);
-                // 標記文件為已處理
-                processedFiles.add(file.getName());
-            } else {
-                Log.i("ProcessCHAInfo", "文件已經被處理過：" + (file != null ? file.getName() : "未知文件"));
-            }
-        } else {
-            Log.i("ProcessCHAInfo", "沒有更多文件可以處理");
-        }
-    }
-
-    private void processFile(File file) {
-        processChaFile(file.getAbsolutePath());
-    }
-
-    public void processAllCHAFilesInDirectory(String directoryPath) {
-        File directory = new File(directoryPath);
-        // 確保該路徑是目錄
-        if (directory.isDirectory()) {
-            // 取得目錄下所有檔案（和目錄）
-            File[] files = directory.listFiles();
-
-            // 確保files不為null
-            if (files != null) {
-                Queue<File> fileQueue = new ArrayDeque<>();
-                for (File file : files) {
-                    // 將檔案加入隊列
-                    fileQueue.add(file);
-                }
-
-                // 處理隊列中的每個文件
-                processFilesQueue(fileQueue);
-            } else {
-                Log.e("ProcessCHAError", "指定目錄沒有找到檔案：" + directoryPath);
-            }
-        } else {
-            Log.e("ProcessCHAError", "指定的路徑不是一個目錄：" + directoryPath);
-        }
-    }
-
-    private void processFilesQueue(Queue<File> fileQueue) {
-        while (!fileQueue.isEmpty()) {
-            File file = fileQueue.poll();
-
-            // 確保是檔案而不是目錄，並且檔案名稱以.cha結尾
-            if (file.isFile() && (file.getName().endsWith(".cha") || file.getName().endsWith(".CHA"))) {
-                // 對每個CHA檔案執行processChaFile操作
-                processChaFile(file.getAbsolutePath());
-            }
         }
     }
 

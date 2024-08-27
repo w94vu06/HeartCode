@@ -22,7 +22,7 @@ public class CalculateDiffMean extends Thread {
             return 9999f; // 或者拋出一個異常
         }
 
-        double[] df1 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(2), R_index.get(6)))  ;
+        double[] df1 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(2), R_index.get(6)));
         double[] df2 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(5), R_index.get(9)));
         double[] df3 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(8), R_index.get(12)));
         double[] df4 = ecgMath.listDoubleToDoubleArray(getReduceRR100(doubles, R_index.get(11), R_index.get(15)));
@@ -45,41 +45,53 @@ public class CalculateDiffMean extends Thread {
         return diffMean;
     }
 
+    // 這邊是降採樣的方法
     public List<Double> getReduceRR100(List<Double> dataList, int startIndex, int endIndex) {
+        // 創建一個列表來存儲兩個R點之間的數據片段
         List<Entry> dataBetweenTwoR = new ArrayList<>();
 
+        // 確保startIndex和endIndex在數據範圍內，防止越界
         startIndex = Math.max(0, startIndex);
         endIndex = Math.min(dataList.size() - 1, endIndex);
 
+        // 將startIndex到endIndex之間的數據轉換為Entry對象並加入列表
         for (int i = startIndex; i <= endIndex; i++) {
-            int xOffset = i - startIndex;
-            dataBetweenTwoR.add(new Entry(xOffset, dataList.get(i).floatValue()));
+            int xOffset = i - startIndex;  // 計算相對於startIndex的偏移量
+            dataBetweenTwoR.add(new Entry(xOffset, dataList.get(i).floatValue())); // 創建Entry對象並加入列表
         }
 
+        // 將提取出的數據片段進行降採樣，並返回結果
         return reduceSampling(dataBetweenTwoR);
     }
 
     private List<Double> reduceSampling(List<Entry> input) {
-        int originalLength = input.size();
-        int targetLength = Math.max(originalLength / 100, 100);
+        int originalLength = input.size(); // 原始數據片段的長度
+        int targetLength = Math.max(originalLength / 100, 100); // 目標降採樣後的長度，至少為100
 
-        List<Double> result = new ArrayList<>();
-        int step = originalLength / targetLength;
+        List<Double> result = new ArrayList<>(); // 創建結果列表來存儲降採樣後的數據
+        int step = originalLength / targetLength; // 計算每個降採樣區間的步長
+
+        // 遍歷原始數據片段以進行降採樣
         for (int i = 0; i < originalLength; i++) {
-            double sum = 0;
-            int count = 0;
+            double sum = 0; // 用於計算區間內數據的總和
+            int count = 0;  // 用於計算區間內數據的數量
 
+            // 聚合區間內的數據，計算該區間的平均值
             for (double j = i * step; j < (i + 1) * step && j < originalLength; j++) {
-                sum += input.get((int) j).getY();
-                count++;
+                sum += input.get((int) j).getY(); // 累加區間內的數據
+                count++; // 增加數據計數
             }
 
+            // 如果該區間內有數據，則計算平均值並加入結果列表
             if (count > 0) {
                 result.add(sum / count);
             }
         }
+
+        // 返回降採樣後的數據片段，通常是中間的50個點
         return get50Point(result);
     }
+
 
     private List<Double> get50Point(List<Double> result) {
         int midPoint = result.size() / 2;

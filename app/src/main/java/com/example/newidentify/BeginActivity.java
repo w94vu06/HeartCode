@@ -36,6 +36,9 @@ public class BeginActivity extends AppCompatActivity {
         initButton();
         checkPermissions();
         checkStorageManagerPermission();//檢查儲存權限
+        if (!Python.isStarted()) {
+            Python.start(new AndroidPlatform(this));
+        }
     }
 
     private void initButton() {

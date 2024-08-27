@@ -25,8 +25,8 @@ android {
         python {
 
 //            buildPython "\"C:\\Users\\doob9\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\""
-            buildPython "C:/Users/doob9/AppData/Local/Programs/Python/Python312/python.exe"
-//            buildPython  "C:/Users/Yu/AppData/Local/Programs/Python/Python312/python.exe"
+//            buildPython "C:/Users/doob9/AppData/Local/Programs/Python/Python312/python.exe"
+            buildPython  "C:/Users/Yu/AppData/Local/Programs/Python/Python312/python.exe"
             python {
                 pip {
                     install "neurokit2"

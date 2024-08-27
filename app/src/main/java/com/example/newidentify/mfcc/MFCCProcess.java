@@ -32,11 +32,12 @@ public class MFCCProcess {
         pyObj = py.getModule("nk2_process");
     }
 
-    public double[] mfccRegister(double[] ecg_signal) {
+    public ArrayList<double[]> mfccRegister(double[] ecg_signal) {
         PyObject object;
-        double[] distanceArray = new double[0]; // 初始化
+        ArrayList<double[]> distanceArray = new ArrayList<>(); // 初始化
 
         try {
+            // 調用 Python 函數，送入 ECG 訊號和採樣率
             object = pyObj.callAttr("hrv_analysis", ecg_signal, 1000.0);
             if (object == null || object.asList().isEmpty()) {
                 Log.e("mfccRegister", "Invalid PyObject: null or empty");
@@ -44,10 +45,8 @@ public class MFCCProcess {
             }
 
             // 將 Python 返回的數據轉換為 Map
-            Map<String, List<Double>> rValuesMap = gson.fromJson(String.valueOf(object.asList().get(0)), new TypeToken<Map<String, List<Double>>>() {
-            }.getType());
-            Map<String, Double> HRVValuesMap = gson.fromJson(String.valueOf(object.asList().get(1)), new TypeToken<Map<String, Double>>() {
-            }.getType());
+            Map<String, List<Double>> rValuesMap = gson.fromJson(String.valueOf(object.asList().get(0)), new TypeToken<Map<String, List<Double>>>() {}.getType());
+            Map<String, Double> HRVValuesMap = gson.fromJson(String.valueOf(object.asList().get(1)), new TypeToken<Map<String, Double>>() {}.getType());
 
             // 檢查 rValuesMap 和 HRVValuesMap 是否為空
             if (rValuesMap == null || HRVValuesMap == null) {
@@ -61,57 +60,57 @@ public class MFCCProcess {
             // 先檢查資料的品質
             double diffMean = calculateDiffMean.calDiffMean(signalMapList, ecgMath.listDoubleToListInt(rPeaksList));
             if (Math.abs(diffMean) > 0.8) {
-                global_activity.runOnUiThread(() -> {
-                    MainActivity.txt_detect_result.setText("自我差異度：" + String.format("%.2f", diffMean) + "\n差異度過高");
-                    MainActivity.txt_isMe.setText("");
-                });
+                updateUI(diffMean, "差異度過高", "");
                 return distanceArray; // 返回空的數組
             } else {
-                global_activity.runOnUiThread(() -> {
-                    MainActivity.txt_detect_result.setText("自我差異度：" + String.format("%.2f", diffMean));
-                });
+                updateUI(diffMean, "", "");
             }
 
             // 開始計算 MFCC
             MFCC mfcc = new MFCC();
-            double[] mfcc1 = ecgMath.convertFloatArrayToDoubleArray(
-                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(2), rPeaksList.get(6))));
-            double[] mfcc2 = ecgMath.convertFloatArrayToDoubleArray(
-                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(5), rPeaksList.get(9))));
-            double[] mfcc3 = ecgMath.convertFloatArrayToDoubleArray(
-                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(8), rPeaksList.get(12))));
-            double[] mfcc4 = ecgMath.convertFloatArrayToDoubleArray(
-                    mfcc.process(get5RR8000(signalMapList, rPeaksList.get(11), rPeaksList.get(15))));
+            double[][] mfccResults = new double[8][];
+            mfccResults[0] = ecgMath.convertFloatArrayToDoubleArray(mfcc.process(get5RR8000(signalMapList, rPeaksList.get(2), rPeaksList.get(6))));
+            mfccResults[1] = ecgMath.convertFloatArrayToDoubleArray(mfcc.process(get5RR8000(signalMapList, rPeaksList.get(5), rPeaksList.get(9))));
+            mfccResults[2] = ecgMath.convertFloatArrayToDoubleArray(mfcc.process(get5RR8000(signalMapList, rPeaksList.get(8), rPeaksList.get(12))));
+            mfccResults[3] = ecgMath.convertFloatArrayToDoubleArray(mfcc.process(get5RR8000(signalMapList, rPeaksList.get(11), rPeaksList.get(15))));
+            //畫圖用
+            mfccResults[4] = get5RR8000(signalMapList, rPeaksList.get(2), rPeaksList.get(6));
+            mfccResults[5] = get5RR8000(signalMapList, rPeaksList.get(5), rPeaksList.get(9));
+            mfccResults[6] = get5RR8000(signalMapList, rPeaksList.get(8), rPeaksList.get(12));
+            mfccResults[7] = get5RR8000(signalMapList, rPeaksList.get(11), rPeaksList.get(15));
 
-            // 計算兩組 MFCC 的歐式距離
-            double distance1 = calculateEuclideanDistance(mfcc1, mfcc2);
-            double distance2 = calculateEuclideanDistance(mfcc3, mfcc4);
+            // 計算同一訊號兩組 MFCC 的歐式距離
+            ArrayList<double[]> registeredData1 = new ArrayList<>();
+            ArrayList<double[]> registeredData2 = new ArrayList<>();
+            registeredData1.add(mfccResults[0]);
+            registeredData1.add(mfccResults[1]);
+            registeredData2.add(mfccResults[2]);
+            registeredData2.add(mfccResults[3]);
 
-            // 計算距離的中位數和平均數
-            ArrayList<Double> distances = new ArrayList<>();
-            distances.add(distance1);
-            distances.add(distance2);
-            double medianDistance = calculateMedian(distances);
-            double meanDistance = calculateMean(distances);
+            double distance = euclideanDistanceProcessor(registeredData1, registeredData2);
 
-            distanceArray = new double[]{distance1, distance2};
+            for (int i = 0; i < mfccResults.length; i++) {
+                distanceArray.add(mfccResults[i]);
+            }
+            distanceArray.add(new double[]{distance}); // 添加距離
 
-            // 返回距離值
-            global_activity.runOnUiThread(() -> {
-                MainActivity.txt_checkID_result.setText("中位：" + String.format("%.2f", medianDistance) +
-                        "\n平均：" + String.format("%.2f", meanDistance));
-                MainActivity.txt_checkID_status.setText("已註冊完成");
-            });
+            updateUI(diffMean, "已註冊完成", String.format("%.2f", distance));
 
         } catch (Exception e) {
             Log.e("mfccRegister", "Error: " + e.getMessage());
             return distanceArray; // 返回空的數組或在發生錯誤時返回初始值
         }
-
         return distanceArray;
     }
 
-
+    private void updateUI(double diffMean, String checkIdStatus, String checkIdResult) {
+        global_activity.runOnUiThread(() -> {
+            MainActivity.txt_detect_result.setText("自我差異度：" + String.format("%.2f", diffMean));
+            if (!checkIdStatus.isEmpty()) {
+                MainActivity.txt_checkID_status.setText(checkIdStatus);
+            }
+        });
+    }
 
     // 調用NK2濾波處理
     public ArrayList<double[]> mfccProcess(double[] ecg_signal) {
@@ -124,7 +123,7 @@ public class MFCCProcess {
 
         return getProcessedSignal(hrv_analysis);
     }
-
+    // 這邊功能大致上跟註冊差不多，就是用來登入時把兩段訊號計算。
     public ArrayList<double[]> getProcessedSignal(PyObject object) {
         // 檢查 object 是否為 null 或者空
         if (object == null || object.asList().isEmpty()) {
@@ -180,6 +179,7 @@ public class MFCCProcess {
             float[] a2;
             float[] a3;
             float[] a4;
+
             float[] a5;
             float[] a6;
             float[] a7;
@@ -211,26 +211,9 @@ public class MFCCProcess {
             arrayList.add(ecgMath.convertFloatArrayToDoubleArray(a6));
             arrayList.add(ecgMath.convertFloatArrayToDoubleArray(a7));
             arrayList.add(ecgMath.convertFloatArrayToDoubleArray(a8));
-
         }
 
         return arrayList;
-    }
-
-    private void checkDiffMean(double diffMean, double Bpm) {
-        global_activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                String s = "自我差異度：" + String.format("%.2f", diffMean);
-                String s1 = "心率：" + String.format("%.2f", Bpm);
-                if (Math.abs(diffMean) > 0.8) {
-                    MainActivity.txt_detect_result.setText(s + "\n差異度過高");
-                    MainActivity.txt_isMe.setText("");
-                } else {
-                    MainActivity.txt_detect_result.setText(s + "\n" + s1);
-                }
-            }
-        });
     }
 
     private static double linearInterpolate(double x0, double y0, double x1, double y1, double x) {
@@ -239,7 +222,7 @@ public class MFCCProcess {
         }
         return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
     }
-
+    //將訊號補到8000個點。
     public static double[] get5RR8000(List<Double> dataList, double startIndex, double endIndex) {
         startIndex = Math.max(0, startIndex);
         endIndex = Math.min(dataList.size() - 1, endIndex);
@@ -271,7 +254,7 @@ public class MFCCProcess {
     }
 
     public double euclideanDistanceProcessor(ArrayList<double[]> firstGroup, ArrayList<double[]> secondGroup) {
-        if (firstGroup.size() == 4 && secondGroup.size() == 4) {
+        if (firstGroup.size() >= 2 && secondGroup.size() >= 2) {
             ArrayList<Double> distances = new ArrayList<>();
 
             for (int i = 0; i < firstGroup.size(); i++) {
@@ -282,12 +265,6 @@ public class MFCCProcess {
                     if (a.length == b.length) {
                         double distance = calculateEuclideanDistance(a, b);
                         distances.add(distance);
-
-                        if (Arrays.equals(a, b)) {
-                            Log.d("Debug", "ED is consistent");
-                        } else {
-                            Log.d("Debug", "ED mismatch detected");
-                        }
                     } else {
                         Log.d("euclideanDistanceProcessor", "Array lengths do not match: " + a.length + "/" + b.length);
                     }
@@ -298,17 +275,6 @@ public class MFCCProcess {
                 Log.d("err", "euclideanDistanceProcessor: distances is empty");
                 return 9999;
             } else {
-                StringBuilder sb = new StringBuilder();
-
-                for (int i = 0; i < distances.size(); i++) {
-                    sb.append(distances.get(i)).append(", ");
-                    if ((i + 1) % 4 == 0) { // 每4个元素换一行
-                        Log.d("rrrr", sb.toString());
-                        sb.setLength(0); // 清空StringBuilder
-                    }
-                }
-                Log.d("rrrr", "mean: " + calculateMean(distances));
-
                 return calculateMedian(distances);
             }
         } else {
@@ -342,33 +308,4 @@ public class MFCCProcess {
         }
         return sum / values.size();
     }
-
-    public void printSubtractedMatrix(ArrayList<double[]> firstGroup, ArrayList<double[]> secondGroup) {
-        if (firstGroup.size() != secondGroup.size()) {
-            Log.d("Error", "Matrix sizes do not match.");
-            return;
-        }
-
-        Log.d("Debug", "Subtracted Matrix:");
-
-        for (int i = 0; i < firstGroup.size(); i++) {
-            double[] a = firstGroup.get(i);
-            double[] b = secondGroup.get(i);
-
-            if (a.length != b.length) {
-                Log.d("Error", "Row lengths do not match at row " + i);
-                return;
-            }
-
-            double[] resultRow = new double[a.length];
-            for (int j = 0; j < a.length; j++) {
-                resultRow[j] = a[j] - b[j];
-            }
-
-            // 打印这一行的结果
-            Log.d("Debug", "Row " + i + ": " + Arrays.toString(resultRow));
-        }
-    }
-
-
 }

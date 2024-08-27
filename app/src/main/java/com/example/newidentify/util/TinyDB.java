@@ -598,7 +598,6 @@ public class TinyDB {
         preferences.edit().putString(key, TextUtils.join("§§§", outerListStrings)).apply();
     }
 
-
     public void putDoubleArray(String key, double[] doubleArray) {
         checkForNullKey(key);
         String[] doubleStrings = new String[doubleArray.length];
