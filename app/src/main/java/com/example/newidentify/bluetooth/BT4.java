@@ -32,6 +32,7 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -597,6 +598,7 @@ public class BT4 extends Service {
                                             if (wave_array.size() >= 7) {
 //                                                Log.d(bluetooth_Tag, "wave_array = " + wave_array.size() + "     bytesAvailable = " + Buffer_Array.size());
                                                 byte[] ecgbyte = new byte[7];
+
                                                 ecgbyte[0] = wave_array.get(0);
                                                 ecgbyte[1] = wave_array.get(1);
                                                 ecgbyte[2] = wave_array.get(2);

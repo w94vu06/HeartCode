@@ -131,6 +131,7 @@ public class MFCCProcess {
             Log.e("getProcessedSignal", "Invalid PyObject: null or empty");
             return null;
         }
+        Log.d("checkJson", "nk2: "+object);
         // 將 Python 返回的數據轉換為 Map
         Map<String, List<Double>> rValuesMap = gson.fromJson(String.valueOf(object.asList().get(0)), new TypeToken<Map<String, List<Double>>>() {
         }.getType());
@@ -281,9 +282,13 @@ public class MFCCProcess {
                 Log.d("err", "euclideanDistanceProcessor: distances is empty");
                 return 9999;
             } else {
-                for (double distance : distances) {
-                    Log.d("euclideanDistanceProcessor", "Distance: " + distance);
-                }
+//                double sumOfSquares = 0;
+//                for (double distance : distances) {
+//                    sumOfSquares += distance * distance;
+//                }
+//                double rms = Math.sqrt(sumOfSquares / distances.size());
+//                Log.d("RMS", "rms: "+rms);
+
                 return calculateMedian(distances);
             }
         } else {
