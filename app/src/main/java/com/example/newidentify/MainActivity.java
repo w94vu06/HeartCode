@@ -15,9 +15,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 import android.view.View;
@@ -29,6 +31,7 @@ import android.widget.Toast;
 
 import com.example.newidentify.bluetooth.BT4;
 import com.example.newidentify.mfcc.MFCCProcess;
+import com.example.newidentify.process.CalculateDiffMean;
 import com.example.newidentify.util.ChartSetting;
 import com.example.newidentify.util.CleanFile;
 import com.example.newidentify.util.TinyDB;
@@ -45,23 +48,23 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
-import com.google.gson.Gson;
 
 import org.apache.commons.logging.LogFactory;
 
 
 public class MainActivity extends AppCompatActivity {
     private static final org.apache.commons.logging.Log log = LogFactory.getLog(MainActivity.class);
-    // Gson 物件
-    private Gson gson = new Gson();
     // TinyDB 物件
     private TinyDB tinyDB;
 
@@ -679,7 +682,12 @@ public class MainActivity extends AppCompatActivity {
         if (regiList1.length > 0 && regiList2.length > 0 &&
                 regiList3.length > 0 && regiList4.length > 0) {
             // 量測一筆，將一筆資料拆成兩段以計算閥值
-            loginMFCC(doubles);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    loginMFCC(doubles);
+                }
+            }).start();
         } else {
             registerMFCC(doubles);
         }
@@ -701,12 +709,10 @@ public class MainActivity extends AppCompatActivity {
             tinyDB.putDoubleArray("mfccDrawList4", mfccRegiList.get(7));
 
             tinyDB.putDoubleArray("mfccDistance", mfccRegiList.get(8));//距離值
-            Log.d("time", "time: 6" + System.currentTimeMillis());
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     chartSetting.overlapArrayChart(chart_df, mfccRegiList.get(4), mfccRegiList.get(5), mfccRegiList.get(6), mfccRegiList.get(7));
-                    Log.d("time", "time: 7" + System.currentTimeMillis());
                 }
             });
         } else {
@@ -722,8 +728,12 @@ public class MainActivity extends AppCompatActivity {
         for (double value : mfccDistance) {
             threshold += value;
         }
+        Log.d("threshold", "originThreshold: " + threshold);
         threshold = threshold * 1.35;
+//        threshold = threshold * 1.2;
         double finalThreshold = threshold;
+        ;
+
         tinyDB.putDouble("mfccThreshold", threshold);
 
         runOnUiThread(new Runnable() {
@@ -753,14 +763,18 @@ public class MainActivity extends AppCompatActivity {
 
             // 計算歐式距離
             loginDistance = mfccProcess.euclideanDistanceProcessor(registeredData, loginData);
+            // 計算他人差異度
+            double otherDiffMean = calculateLoginDiffMean(mfccLoginList);
+
+            showMFCCResult(loginDistance,otherDiffMean, mfccLoginList);
         } catch (Exception e) {
             Log.d("mfcc", "loginMFCC: " + e);
         }
 
-        showMFCCResult(loginDistance, mfccLoginList);
+
     }
 
-    private void showMFCCResult(double loginDistance, ArrayList<double[]> mfccLoginList) {
+    private void showMFCCResult(double loginDistance, double otherDiffMean, ArrayList<double[]> mfccLoginList) {
         // 先顯示本人或非本人的結果
         runOnUiThread(new Runnable() {
             @Override
@@ -768,10 +782,10 @@ public class MainActivity extends AppCompatActivity {
                 double regiDistance = tinyDB.getDouble("mfccThreshold");
                 try {
                     txt_checkID_result.setText("歐式相似度: " + String.format("%.2f", loginDistance));
-                    if (loginDistance > regiDistance) {
-                        txt_isMe.setText("非本人");
-                    } else {
+                    if (loginDistance < regiDistance && Math.abs(otherDiffMean) < 0.5) {
                         txt_isMe.setText("本人");
+                    } else {
+                        txt_isMe.setText("非本人");
                     }
                 } catch (Exception e) {
                     Log.d("text", "run: " + e);
@@ -803,6 +817,59 @@ public class MainActivity extends AppCompatActivity {
         while (list.size() > size) {
             list.remove(list.size() - 1);
         }
+    }
+
+    /**
+     * 計算他人差異度
+     *
+     * @return
+     */
+    public double calculateLoginDiffMean(ArrayList<double[]> mfccLoginList) {
+        double[] regi_df1 = tinyDB.getDoubleArray("mfccDrawList1");
+        double[] regi_df2 = tinyDB.getDoubleArray("mfccDrawList2");
+        double[] regi_df3 = tinyDB.getDoubleArray("mfccDrawList3");
+        double[] regi_df4 = tinyDB.getDoubleArray("mfccDrawList4");
+
+        double[] login_df1 = mfccLoginList.get(4);
+        double[] login_df2 = mfccLoginList.get(5);
+        double[] login_df3 = mfccLoginList.get(6);
+        double[] login_df4 = mfccLoginList.get(7);
+
+        CalculateDiffMean calculateDiffMean = new CalculateDiffMean();
+//        double diff1 = calculateDiffMean.calMidDiff(regi_df1, login_df1);
+//        double diff2 = calculateDiffMean.calMidDiff(regi_df2, login_df2);
+//        double diff3 = calculateDiffMean.calMidDiff(regi_df3, login_df3);
+//        double diff4 = calculateDiffMean.calMidDiff(regi_df4, login_df4);
+//        double diffMean = (diff1 + diff2 + diff3 + diff4) / 4;
+        // 將所有的regi和login數據存入列表
+        List<double[]> regiList = Arrays.asList(regi_df1, regi_df2, regi_df3, regi_df4);
+        List<double[]> loginList = Arrays.asList(login_df1, login_df2, login_df3, login_df4);
+
+        List<Double> diffResults = new ArrayList<>();  // 存儲所有差異結果
+
+        // 雙重迴圈計算所有組合的calMidDiff
+        for (double[] regi : regiList) {
+            for (double[] login : loginList) {
+                double diff = calculateDiffMean.calMidDiff(regi, login);
+                diffResults.add(diff);
+            }
+        }
+
+        // 計算中位數
+        MFCCProcess mfccProcess = new MFCCProcess();
+        double median = mfccProcess.calculateMedian(diffResults);
+        System.out.println("中位數是: " + median);
+
+
+        Log.d("otherDiffMean", "與他人差異度: " + median);
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                txt_detect_result.append("\n他人差異度: " + String.format("%.2f", median));
+            }
+        });
+        return median;
     }
 
     public static native int decpEcgFile(String path);

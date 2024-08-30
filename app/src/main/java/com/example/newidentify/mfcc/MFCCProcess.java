@@ -84,6 +84,7 @@ public class MFCCProcess {
             ArrayList<double[]> registeredData2 = new ArrayList<>();
             registeredData1.add(mfccResults[0]);
             registeredData1.add(mfccResults[1]);
+
             registeredData2.add(mfccResults[2]);
             registeredData2.add(mfccResults[3]);
 
@@ -147,6 +148,7 @@ public class MFCCProcess {
             return null;
         }
         double Bpm = HRVValuesMap.get("bpm");
+        double Rmssd = HRVValuesMap.get("rmssd");
 
         double diffMean = calculateDiffMean.calDiffMean(signalMapList, ecgMath.listDoubleToListInt(rPeaksList));
 
@@ -163,7 +165,8 @@ public class MFCCProcess {
             global_activity.runOnUiThread(() -> {
                 MainActivity.txt_detect_result.setText(
                         "自我差異度：" + String.format("%.2f", diffMean) +
-                                "\n心率：" + String.format("%.2f", Bpm));
+                                "\n心率：" + String.format("%.2f", Bpm) +
+                                "\nRMSSD：" + String.format("%.2f", Rmssd));
             });
         }
 
@@ -222,6 +225,7 @@ public class MFCCProcess {
         }
         return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
     }
+
     //將訊號補到8000個點。
     public static double[] get5RR8000(List<Double> dataList, double startIndex, double endIndex) {
         startIndex = Math.max(0, startIndex);
@@ -253,6 +257,8 @@ public class MFCCProcess {
         return result;
     }
 
+    // 插值方法
+
     public double euclideanDistanceProcessor(ArrayList<double[]> firstGroup, ArrayList<double[]> secondGroup) {
         if (firstGroup.size() >= 2 && secondGroup.size() >= 2) {
             ArrayList<Double> distances = new ArrayList<>();
@@ -275,6 +281,9 @@ public class MFCCProcess {
                 Log.d("err", "euclideanDistanceProcessor: distances is empty");
                 return 9999;
             } else {
+                for (double distance : distances) {
+                    Log.d("euclideanDistanceProcessor", "Distance: " + distance);
+                }
                 return calculateMedian(distances);
             }
         } else {
@@ -292,6 +301,16 @@ public class MFCCProcess {
     }
 
     public static double calculateMedian(ArrayList<Double> values) {
+        Collections.sort(values);
+        int size = values.size();
+        if (size % 2 == 0) {
+            return (values.get(size / 2 - 1) + values.get(size / 2)) / 2.0f;
+        } else {
+            return values.get(size / 2);
+        }
+    }
+
+    public static double calculateMedian(List<Double> values) {
         Collections.sort(values);
         int size = values.size();
         if (size % 2 == 0) {

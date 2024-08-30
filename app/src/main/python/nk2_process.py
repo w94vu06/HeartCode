@@ -35,7 +35,7 @@ def hrv_analysis(data, sampling_rate):
         # mean_nn = hrv_metrics["HRV_MeanNN"].iloc[0]
         # sdnn = hrv_metrics["HRV_SDNN"].iloc[0]
         # sdsd = hrv_metrics["HRV_SDSD"].iloc[0]
-        # rmssd = hrv_metrics["HRV_RMSSD"].iloc[0]
+        rmssd = hrv_metrics["HRV_RMSSD"].iloc[0]
         # pnn20 = hrv_metrics["HRV_pNN20"].iloc[0]
         # pnn50 = hrv_metrics["HRV_pNN50"].iloc[0]
         # hr_mad = hrv_metrics["HRV_MadNN"].iloc[0]
@@ -55,7 +55,7 @@ def hrv_analysis(data, sampling_rate):
             # "mean_nn": mean_nn,
             # "sdnn": sdnn,
             # "sdsd": sdsd,
-            # "rmssd": rmssd,
+            "rmssd": rmssd,
             # "pnn20": pnn20,
             # "pnn50": pnn50,
             # "hr_mad": hr_mad,
